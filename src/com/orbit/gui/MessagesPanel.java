@@ -210,7 +210,19 @@ public class MessagesPanel extends JPanel implements NetworkListener {
 
         JPanel headerActions = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         headerActions.setBackground(MAIN_BG);
-        headerActions.add(createIconButton("📞", "Video Call", true));
+        JButton btnCall = createIconButton("📞", "Video Call", true);
+        btnCall.addActionListener(e -> {
+            if (activeChatId != null && !activeChatType.equals("GROUP")) {
+                int confirm = JOptionPane.showConfirmDialog(this, "Start video call with " + activeChatId + "?", "Orbit Video", JOptionPane.YES_NO_OPTION);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    NetworkManager.getInstance().send("VIDEO_CALL_REQUEST|" + activeChatId + "|" + currentUsername);
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, "Group video calls coming in v2.0!");
+            }
+        });
+        headerActions.add(btnCall);
+        
         JButton btnInfo = createIconButton("ℹ️", "Chat Info", true);
         btnInfo.addActionListener(e -> toggleInfoPanel());
         headerActions.add(btnInfo);

@@ -217,6 +217,28 @@ public class ProfilePanel extends JPanel implements NetworkListener {
                 feedContainer.repaint();
             });
         } 
+        
+        else if (incomingMessage.startsWith("INCOMING_CALL|")) {
+            String caller = incomingMessage.split("\\|")[1];
+            SwingUtilities.invokeLater(() -> {
+                int choice = JOptionPane.showConfirmDialog(this, "Incoming Video Call from " + caller, "Orbit Video", JOptionPane.YES_NO_OPTION);
+                if (choice == JOptionPane.YES_OPTION) {
+                    NetworkManager.getInstance().send("VIDEO_CALL_ACCEPT|" + caller + "|" + currentUsername);
+                    new VideoCallUI(caller, currentUsername, false).setVisible(true);
+                } else {
+                    NetworkManager.getInstance().send("VIDEO_CALL_REJECT|" + caller + "|" + currentUsername);
+                }
+            });
+        }
+        else if (incomingMessage.startsWith("CALL_ACCEPTED|")) {
+            String peer = incomingMessage.split("\\|")[1];
+            SwingUtilities.invokeLater(() -> {
+                new VideoCallUI(peer, currentUsername, true).setVisible(true);
+            });
+        }
+        else if (incomingMessage.startsWith("CALL_REJECTED|")) {
+            JOptionPane.showMessageDialog(this, "Call was declined.");
+        }
         else if (incomingMessage.startsWith("UPDATE_SUCCESS|")) {
             String newName = incomingMessage.substring(15);
             this.currentDisplayName = newName; 
