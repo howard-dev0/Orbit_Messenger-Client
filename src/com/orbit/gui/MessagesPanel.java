@@ -256,11 +256,30 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         }
     }
 
-    private String getDynamicRoomKey(String chatId) {
-        String baseSecret = "OrbitSecret_"; String combined = baseSecret + chatId + "_Capstone2026";
-        if (combined.length() > 16) return combined.substring(0, 16);
-        else return String.format("%-16s", combined).replace(' ', 'X');
+    private String getDynamicRoomKey(String targetId) {
+    String base;
+    
+    if (activeChatType.equals("GROUP")) {
+        // Groups use the Group ID as the key base
+        base = "OrbitGroup_" + targetId;
+    } else {
+        // DMs: Sort usernames alphabetically so both users generate the EXACT same key
+        // Example: "howard" and "angely" both become "angely_howard"
+        String user1 = currentUsername.toLowerCase();
+        String user2 = targetId.toLowerCase();
+        
+        if (user1.compareTo(user2) < 0) {
+            base = user1 + "_" + user2;
+        } else {
+            base = user2 + "_" + user1;
+        }
     }
+
+    // Hash it slightly to make it 16 bytes for AES
+    String baseSecret = "Orbit_" + base + "_2026";
+    if (baseSecret.length() > 16) return baseSecret.substring(0, 16);
+    return String.format("%-16s", baseSecret).replace(' ', 'X');
+}
 
     @Override
     public void onMessageReceived(String incomingMessage) {
@@ -285,27 +304,27 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         
         // 2. RECEIVE LIVE MESSAGE
         else if (incomingMessage.startsWith("NEW_MESSAGE|")) {
-            String[] parts = incomingMessage.split("\\|");
-            if (parts.length < 5) return;
-            
-            String incomingChatId = parts[1];
-            String senderName = parts[2];
-            String encryptedText = parts[3];
-            String time = parts[4]; // Server now sends AM/PM
+    String[] parts = incomingMessage.split("\\|");
+    if (parts.length < 5) return;
+    
+    String incomingChatId = parts[1]; // This is the sender's username
+    String senderName = parts[2];
+    String encryptedText = parts[3];
+    String time = parts[4]; 
 
-            if (incomingChatId.equals(activeChatId)) {
-                String dynamicKey = getDynamicRoomKey(activeChatId);
-                String decryptedText = CryptoUtil.decrypt(encryptedText, dynamicKey);
-                
-                // FINAL SAFETY: If decryption fails or text is null, don't show "null"
-                if (decryptedText == null || decryptedText.equalsIgnoreCase("null")) {
-                    decryptedText = "[Encrypted Message]";
-                }
-                
-                appendMessageBubble(senderName, decryptedText, time, false);
-                scrollToBottom();
-            }
-        }
+    // Use our new sorted key logic to decrypt
+    if (incomingChatId.equals(activeChatId)) {
+        String dynamicKey = getDynamicRoomKey(incomingChatId);
+        String decryptedText = CryptoUtil.decrypt(encryptedText, dynamicKey);
+        
+        // Final protection against decryption failure
+        if (decryptedText == null) decryptedText = "[Secure Message]";
+
+        appendMessageBubble(senderName, decryptedText, time, false);
+        scrollToBottom();
+    }
+}
+        
 
         // 3. RECEIVE HISTORY
         else if (incomingMessage.startsWith("CHAT_HISTORY|")) {
@@ -337,42 +356,42 @@ public class MessagesPanel extends JPanel implements NetworkListener {
     }
 
     private void appendMessageBubble(String sender, String text, String time, boolean isMe) {
-        // Aggressive filter: If text is null or literally "null", skip it or show placeholder
-        if (text == null || text.equalsIgnoreCase("null") || text.trim().isEmpty()) {
-            return; 
-        }
-
-        JPanel row = new JPanel(new BorderLayout());
-        row.setOpaque(false);
-        row.setBorder(new EmptyBorder(5, 15, 5, 15));
-
-        GradientBubble bubble = new GradientBubble(text, isMe);
-        
-        // Ensure time is in 12-hour format for local messages too
-        JLabel lblTime = new JLabel(time);
-        lblTime.putClientProperty("FlatLaf.style", "font: 10; foreground: #7A7D82");
-        
-        JPanel bubbleStack = new JPanel(new MigLayout("wrap 1, insets 0, gap 2", (isMe ? "[right]" : "[left]")));
-        bubbleStack.setOpaque(false);
-        bubbleStack.add(bubble);
-        bubbleStack.add(lblTime);
-
-        if (isMe) {
-            row.add(bubbleStack, BorderLayout.EAST);
-        } else {
-            JPanel leftWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-            leftWrapper.setOpaque(false);
-            JLabel avatar = new JLabel("👤");
-            avatar.putClientProperty("FlatLaf.style", "font: 180% $defaultFont; foreground: #B0B3B8");
-            leftWrapper.add(avatar);
-            leftWrapper.add(bubbleStack);
-            row.add(leftWrapper, BorderLayout.WEST);
-        }
-
-        chatHistoryContainer.add(row);
-        chatHistoryContainer.revalidate();
-        chatHistoryContainer.repaint();
+    // 1. Scrub "null" or empty messages immediately
+    if (text == null || text.equalsIgnoreCase("null") || text.trim().isEmpty()) {
+        return; 
     }
+
+    JPanel row = new JPanel(new BorderLayout());
+    row.setOpaque(false);
+    row.setBorder(new EmptyBorder(5, 15, 5, 15));
+
+    GradientBubble bubble = new GradientBubble(text, isMe);
+    
+    // 2. Ensure Time is always 12-hour format
+    JLabel lblTime = new JLabel(time);
+    lblTime.putClientProperty("FlatLaf.style", "font: 10; foreground: #7A7D82");
+    
+    JPanel bubbleStack = new JPanel(new MigLayout("wrap 1, insets 0, gap 2", (isMe ? "[right]" : "[left]")));
+    bubbleStack.setOpaque(false);
+    bubbleStack.add(bubble);
+    bubbleStack.add(lblTime);
+
+    if (isMe) {
+        row.add(bubbleStack, BorderLayout.EAST);
+    } else {
+        JPanel leftWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        leftWrapper.setOpaque(false);
+        JLabel avatar = new JLabel("👤");
+        avatar.putClientProperty("FlatLaf.style", "font: 180% $defaultFont; foreground: #B0B3B8");
+        leftWrapper.add(avatar);
+        leftWrapper.add(bubbleStack);
+        row.add(leftWrapper, BorderLayout.WEST);
+    }
+
+    chatHistoryContainer.add(row);
+    chatHistoryContainer.revalidate();
+    chatHistoryContainer.repaint();
+}
 
     private void toggleInfoPanel() {
         isInfoPanelVisible = !isInfoPanelVisible;

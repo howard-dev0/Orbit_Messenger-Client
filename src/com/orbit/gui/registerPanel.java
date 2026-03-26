@@ -97,6 +97,7 @@ public class registerPanel extends javax.swing.JPanel {
 
         confirmpassField.setBackground(new java.awt.Color(53, 53, 60));
         confirmpassField.setFont(new java.awt.Font("Segoe UI", 0, 22)); // NOI18N
+        confirmpassField.setForeground(new java.awt.Color(255, 255, 255));
 
         passwordResponseLabel.setForeground(new java.awt.Color(255, 160, 155));
         passwordResponseLabel.setText(" ");
