@@ -60,7 +60,7 @@ public class MessagesPanel extends JPanel implements NetworkListener {
     private JLabel lblChatName;
     private JLabel lblInfoName;
     private JLabel lblInfoStatus;
-
+    private JLabel headerAvatar;
     private JTextField txtChatInput;
 
     private final Color MAIN_BG = Color.decode("#18191A");
@@ -90,7 +90,7 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         filterPanel.setBackground(SIDEBAR_BG);
         filterPanel.setBorder(new EmptyBorder(15, 15, 5, 15));
 
-        JLabel lblChats = new JLabel("Chats");
+        JLabel lblChats = new JLabel("Orbit");
         lblChats.putClientProperty("FlatLaf.style", "font: bold 24; foreground: #E4E6EB");
         filterPanel.add(lblChats, BorderLayout.WEST);
 
@@ -162,7 +162,19 @@ public class MessagesPanel extends JPanel implements NetworkListener {
 
                 NetworkManager.getInstance().send("LOAD_CHAT_HISTORY|" + activeChatId + "|" + currentUsername);
 
-                infoCardLayout.show(rightInfoPanel, "GROUP".equals(activeChatType) ? "GROUP_INFO" : "DM_INFO");
+                // 🚀 DYNAMIC SWITCH: If it's a group, ask the server for the details!
+                if ("GROUP".equals(activeChatType)) {
+                    NetworkManager.getInstance().send("GET_GROUP_INFO|" + activeChatId);
+                } else {
+                    infoCardLayout.show(rightInfoPanel, "DM_INFO");
+
+                    // 🚀 THE FIX: Reset the Center Header avatar back to a single person for DMs!
+                    if (headerAvatar != null) {
+                        headerAvatar.setIcon(null);
+                        headerAvatar.setText("👤");
+                        headerAvatar.putClientProperty("FlatLaf.style", "font: 250% $defaultFont; foreground: #B0B3B8");
+                    }
+                }
             }
         });
 
@@ -179,7 +191,9 @@ public class MessagesPanel extends JPanel implements NetworkListener {
 
         JPanel headerTitleWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         headerTitleWrap.setBackground(MAIN_BG);
-        JLabel headerAvatar = new JLabel("👥");
+
+        // 🚀 CHANGE THIS LINE (Remove 'JLabel'):
+        headerAvatar = new JLabel("👥");
         headerAvatar.putClientProperty("FlatLaf.style", "font: 250% $defaultFont");
 
         JPanel nameStack = new JPanel(new MigLayout("wrap 1, insets 0, gap 0"));
@@ -214,7 +228,6 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         scrollChat.setBorder(null);
         scrollChat.getVerticalScrollBar().setUnitIncrement(16);
 
-        // --- INTERACTIVE INPUT AREA ---
         JPanel inputArea = new JPanel(new BorderLayout(10, 0));
         inputArea.setBackground(MAIN_BG);
         inputArea.setBorder(new EmptyBorder(15, 15, 15, 15));
@@ -233,7 +246,7 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         inputArea.add(inputLeft, BorderLayout.WEST);
 
         txtChatInput = new JTextField();
-        txtChatInput.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14)); // Force emoji font support in text field
+        txtChatInput.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
         txtChatInput.putClientProperty("JTextField.placeholderText", "Aa");
         txtChatInput.putClientProperty("FlatLaf.style", "arc: 999; borderWidth: 0; focusWidth: 0; background: #3A3B3C; foreground: #E4E6EB; margin: 8, 15, 8, 15");
         inputArea.add(txtChatInput, BorderLayout.CENTER);
@@ -248,7 +261,7 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         inputRight.add(btnEmoji);
 
         JButton btnReaction = createIconButton("👍", "Send Reaction", true);
-        btnReaction.addActionListener(e -> showReactionPicker(btnReaction));
+        btnReaction.addActionListener(e -> sendReaction());
         inputRight.add(btnReaction);
 
         inputArea.add(inputRight, BorderLayout.EAST);
@@ -262,7 +275,8 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         rightInfoPanel.setPreferredSize(new Dimension(320, 0));
         rightInfoPanel.setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, Color.decode("#393A3B")));
         rightInfoPanel.add(buildDMInfoPanel(), "DM_INFO");
-        rightInfoPanel.add(buildGroupInfoPanel(), "GROUP_INFO");
+        // We leave the group card empty, because we will build it dynamically when the user clicks a group!
+        rightInfoPanel.add(new JPanel(), "DYNAMIC_GROUP_INFO");
 
         rightSplitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, centerPanel, rightInfoPanel);
         rightSplitPane.setResizeWeight(1.0);
@@ -273,6 +287,200 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         mainSplitPane.setBorder(null);
 
         add(mainSplitPane, BorderLayout.CENTER);
+    }
+
+    // =========================================================
+    // IMAGE & UI HELPER UTILITIES
+    // =========================================================
+    private Icon getAvatarIcon(String base64, int size) {
+        if (base64 == null || base64.equals("default") || base64.isEmpty()) {
+            return null;
+        }
+        try {
+            byte[] bytes = Base64.getDecoder().decode(base64);
+            Image img = ImageIO.read(new ByteArrayInputStream(bytes)).getScaledInstance(size, size, Image.SCALE_SMOOTH);
+            return new ImageIcon(img);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void changeGroupPhoto() {
+        if (activeChatId == null) {
+            return;
+        }
+        JFileChooser chooser = new JFileChooser();
+        chooser.setFileFilter(new FileNameExtensionFilter("Images", "jpg", "png", "jpeg"));
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            try {
+                File file = chooser.getSelectedFile();
+                BufferedImage img = ImageIO.read(file);
+                Image scaled = img.getScaledInstance(150, 150, Image.SCALE_SMOOTH);
+                BufferedImage bufferedScaled = new BufferedImage(150, 150, BufferedImage.TYPE_INT_RGB);
+                bufferedScaled.getGraphics().drawImage(scaled, 0, 0, null);
+
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                ImageIO.write(bufferedScaled, "jpg", baos);
+                String base64 = Base64.getEncoder().encodeToString(baos.toByteArray());
+
+                NetworkManager.getInstance().send("UPDATE_GROUP_AVATAR|" + activeChatId + "|" + base64);
+                // Refresh the panel instantly
+                NetworkManager.getInstance().send("GET_GROUP_INFO|" + activeChatId);
+                JOptionPane.showMessageDialog(this, "Group photo updated successfully!");
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this, "Error uploading image.");
+            }
+        }
+    }
+
+    private void addPeopleToGroup() {
+        if (activeChatId == null) {
+            return;
+        }
+        String target = JOptionPane.showInputDialog(this, "Enter the username of the person to add:", "Add Member", JOptionPane.PLAIN_MESSAGE);
+        if (target != null && !target.trim().isEmpty()) {
+            NetworkManager.getInstance().send("ADD_TO_GROUP|" + activeChatId + "|" + target.trim());
+            JOptionPane.showMessageDialog(this, "Request sent to add " + target);
+            // Refresh
+            NetworkManager.getInstance().send("GET_GROUP_INFO|" + activeChatId);
+        }
+    }
+
+    // =========================================================
+    // DYNAMIC GROUP RENDERING
+    // =========================================================
+    private void renderDynamicGroupPanel(String groupId, String groupName, String avatarBase64, String creatorUsername, String membersData) {
+        lblChatName.setText(groupName + " 🔒");
+        Icon centerIcon = getAvatarIcon(avatarBase64, 45); // Shrink to fit header
+        if (centerIcon != null) {
+            headerAvatar.setText(null);
+            headerAvatar.setIcon(centerIcon);
+        } else {
+            headerAvatar.setIcon(null);
+            headerAvatar.setText("👥");
+            headerAvatar.putClientProperty("FlatLaf.style", "font: 250% $defaultFont; foreground: #0084FF");
+        }
+
+        JPanel p = new JPanel(new MigLayout("wrap 1, fillx, insets 20", "[center]", "[]10[]5[]15[]10[fill]"));
+        p.setBackground(SIDEBAR_BG);
+
+        // 1. Group Avatar
+        JLabel avatar = new JLabel();
+        Icon icon = getAvatarIcon(avatarBase64, 80);
+        if (icon != null) {
+            avatar.setIcon(icon);
+        } else {
+            avatar.setText("👥");
+            avatar.putClientProperty("FlatLaf.style", "font: 500% $defaultFont; foreground: #0084FF");
+        }
+        p.add(avatar);
+
+        // 2. Group Name
+        JLabel name = new JLabel(groupName);
+        name.putClientProperty("FlatLaf.style", "font: bold 18; foreground: #E4E6EB");
+        p.add(name);
+
+        // 3. Actions
+        JPanel actionRow = new JPanel(new MigLayout("insets 0, gap 20", "[center]", ""));
+        actionRow.setBackground(SIDEBAR_BG);
+        actionRow.add(createActionCircle("🔕", "Mute", null));
+        actionRow.add(createActionCircle("🔍", "Search", e -> showSearchDialog()));
+        p.add(actionRow);
+
+        JPanel sections = new JPanel(new MigLayout("wrap 1, fillx, insets 0", "[fill]", "[]0[]"));
+        sections.setBackground(SIDEBAR_BG);
+
+        sections.add(createSectionHeader("Customize chat"), "gaptop 10");
+        sections.add(createMenuListItem("✏️", "Change chat name", e -> changeGroupName()));
+        sections.add(createMenuListItem("🖼️", "Change photo", e -> changeGroupPhoto()));
+        sections.add(createMenuListItem("👍", "Change emoji", e -> changeChatEmoji()));
+
+        sections.add(createSectionHeader("Chat members"), "gaptop 10");
+        sections.add(createMenuListItem("➕", "Add people", e -> addPeopleToGroup()));
+
+        // 🚀 THE MAGIC: Loop through the members and build a visual row for each one!
+        boolean amIAdmin = currentUsername.equals(creatorUsername);
+
+        if (!membersData.isEmpty()) {
+            String[] members = membersData.split("~");
+            for (String m : members) {
+                if (m.isEmpty()) {
+                    continue;
+                }
+                String[] mParts = m.split("\\^"); // [0]=username, [1]=fullname, [2]=avatar
+                if (mParts.length >= 3) {
+                    boolean isThisUserAdmin = mParts[0].equals(creatorUsername);
+                    sections.add(createMemberRow(mParts[0], mParts[1], mParts[2], amIAdmin, isThisUserAdmin, groupId));
+                }
+            }
+        }
+
+        sections.add(createSectionHeader("Privacy & support"), "gaptop 10");
+        JButton btnLeave = createMenuListItem("🚪", "Leave group", e -> {
+            int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to leave this group?", "Confirm Exit", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION && activeChatId != null) {
+                NetworkManager.getInstance().send("LEAVE_GROUP|" + activeChatId + "|" + currentUsername);
+                chatHistoryContainer.removeAll();
+                lblChatName.setText("Select a chat...");
+                activeChatId = null;
+                chatHistoryContainer.revalidate();
+                chatHistoryContainer.repaint();
+            }
+        });
+        sections.add(btnLeave);
+
+        JScrollPane sp = new JScrollPane(sections);
+        sp.setBorder(null);
+        sp.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        p.add(sp, "grow");
+
+        // Swap the panel into the layout
+        rightInfoPanel.add(p, "DYNAMIC_GROUP_INFO");
+        infoCardLayout.show(rightInfoPanel, "DYNAMIC_GROUP_INFO");
+        rightInfoPanel.revalidate();
+        rightInfoPanel.repaint();
+    }
+
+    private JPanel createMemberRow(String username, String fullName, String avatarBase64, boolean amIAdmin, boolean isThisUserAdmin, String groupId) {
+        JPanel row = new JPanel(new MigLayout("insets 5 10 5 10, fillx", "[][grow][]", ""));
+        row.setBackground(SIDEBAR_BG);
+
+        JLabel avatar = new JLabel();
+        Icon icon = getAvatarIcon(avatarBase64, 30);
+        if (icon != null) {
+            avatar.setIcon(icon);
+        } else {
+            avatar.setText("👤");
+            avatar.putClientProperty("FlatLaf.style", "font: 180% $defaultFont; foreground: #B0B3B8");
+        }
+        row.add(avatar);
+
+        JPanel nameStack = new JPanel(new MigLayout("wrap 1, insets 0, gap 0"));
+        nameStack.setOpaque(false);
+        JLabel lblName = new JLabel(fullName + (isThisUserAdmin ? " (Admin)" : ""));
+        lblName.putClientProperty("FlatLaf.style", "font: bold 13; foreground: #E4E6EB");
+        JLabel lblUser = new JLabel("@" + username);
+        lblUser.putClientProperty("FlatLaf.style", "font: 10; foreground: #B0B3B8");
+        nameStack.add(lblName);
+        nameStack.add(lblUser);
+        row.add(nameStack, "growx");
+
+        // 🚀 Only show the KICK button if I am the Admin, and I am not trying to kick myself!
+        if (amIAdmin && !isThisUserAdmin) {
+            JButton btnKick = new JButton("Kick");
+            btnKick.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            btnKick.putClientProperty("FlatLaf.style", "background: #E0245E; foreground: #FFF; borderWidth: 0; arc: 10; padding: 2, 8, 2, 8; font: 11");
+            btnKick.addActionListener(e -> {
+                int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to remove " + username + "?", "Remove Member", JOptionPane.YES_NO_OPTION);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    NetworkManager.getInstance().send("REMOVE_FROM_GROUP|" + groupId + "|" + username + "|" + currentUsername);
+                    // Refresh Panel
+                    NetworkManager.getInstance().send("GET_GROUP_INFO|" + groupId);
+                }
+            });
+            row.add(btnKick);
+        }
+        return row;
     }
 
     // =========================================================
@@ -295,12 +503,11 @@ public class MessagesPanel extends JPanel implements NetworkListener {
     private void showEmojiPicker(JButton invoker) {
         JPopupMenu popup = new JPopupMenu();
         popup.setLayout(new GridLayout(3, 5, 2, 2));
-        popup.setBackground(Color.GRAY);
+        popup.setBackground(SIDEBAR_BG);
 
         String[] emojis = {"😀", "😂", "🥰", "😎", "🥺", "😭", "😡", "🤔", "🙌", "👏", "❤️", "🔥", "🎉", "✨", "💯"};
         for (String e : emojis) {
             JButton eBtn = new JButton(e);
-            // 🚀 FIX 1: Explicitly force "Segoe UI Emoji" to bring back colors instead of B&W outlines!
             eBtn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 22));
             eBtn.putClientProperty("FlatLaf.style", "borderWidth: 0; background: null;");
             eBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -345,121 +552,21 @@ public class MessagesPanel extends JPanel implements NetworkListener {
 
         menu.add(itemFile);
         menu.add(itemLoc);
-
-        // Show menu slightly above the button
         menu.show(invoker, 0, -menu.getPreferredSize().height);
     }
 
-    private void showReactionPicker(JButton invoker) {
-        JPopupMenu popup = new JPopupMenu();
-        popup.setLayout(new GridLayout(1, 5, 5, 5));
-        popup.setBackground(SIDEBAR_BG);
-        popup.setBorder(new EmptyBorder(5, 5, 5, 5));
-
-        String[] reactions = {"👍", "❤️", "😂", "😮", "🔥"};
-        for (String r : reactions) {
-            JButton rBtn = new JButton(r);
-            rBtn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 20));
-            rBtn.putClientProperty("FlatLaf.style", "borderWidth: 0; background: null;");
-            rBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            rBtn.addActionListener(e -> {
-                sendCustomReaction(r);
-                popup.setVisible(false);
-            });
-            popup.add(rBtn);
-        }
-        popup.show(invoker, 0, -popup.getPreferredSize().height);
-    }
-
-    private void sendCustomReaction(String emoji) {
-        if (activeChatId == null) {
-            return;
-        }
-        String time = new SimpleDateFormat("h:mm a").format(new Date());
-        appendMessageBubble(currentDisplayName, emoji, time, true, "default");
-        scrollToBottom();
-
-        String dynamicKey = getDynamicRoomKey(activeChatId);
-        String encrypted = CryptoUtil.encrypt(emoji, dynamicKey);
-        NetworkManager.getInstance().send("SEND_MESSAGE|" + activeChatId + "|" + encrypted + "|" + currentUsername);
-    }
-
-    // 🚀 NEW: Functional Group Info Panel with "Leave Group"
-    private JPanel buildGroupInfoPanel() {
-        JPanel p = new JPanel(new MigLayout("wrap 1, fillx, insets 20", "[center]", "[]10[]5[]15[]10[fill]"));
-        p.setBackground(SIDEBAR_BG);
-
-        JLabel avatar = new JLabel("👥");
-        avatar.putClientProperty("FlatLaf.style", "font: 500% $defaultFont; foreground: #0084FF");
-        p.add(avatar);
-
-        JLabel name = new JLabel("Group Chat");
-        name.putClientProperty("FlatLaf.style", "font: bold 18; foreground: #E4E6EB");
-        p.add(name);
-
-        JPanel actionRow = new JPanel(new MigLayout("insets 0, gap 20", "[center]", ""));
-        actionRow.setBackground(SIDEBAR_BG);
-        
-        // 🚀 WIRED: Mute & Search
-        actionRow.add(createActionCircle("🔕", "Mute", e -> JOptionPane.showMessageDialog(this, "Notifications muted for this chat."))); 
-        actionRow.add(createActionCircle("🔍", "Search", e -> showSearchDialog())); 
-        p.add(actionRow);
-
-        JPanel sections = new JPanel(new MigLayout("wrap 1, fillx, insets 0", "[fill]", "[]0[]"));
-        sections.setBackground(SIDEBAR_BG);
-
-        sections.add(createSectionHeader("Customize chat"), "gaptop 10");
-        
-        // 🚀 WIRED: Rename Group & Change Emoji
-        sections.add(createMenuListItem("✏️", "Change chat name", e -> changeGroupName()));
-        sections.add(createMenuListItem("🖼️", "Change photo", e -> JOptionPane.showMessageDialog(this, "Group photo uploading coming soon!")));
-        sections.add(createMenuListItem("👍", "Change emoji", e -> changeChatEmoji()));
-
-        sections.add(createSectionHeader("Chat members"), "gaptop 10");
-        sections.add(createMenuListItem("👤", "View members", e -> JOptionPane.showMessageDialog(this, "Member list coming soon!")));
-        sections.add(createMenuListItem("➕", "Add people", e -> JOptionPane.showMessageDialog(this, "Add people coming soon!")));
-
-        sections.add(createSectionHeader("Privacy & support"), "gaptop 10");
-        
-        JButton btnLeave = createMenuListItem("🚪", "Leave group", e -> {
-            int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to leave this group?", "Confirm Exit", JOptionPane.YES_NO_OPTION);
-            if (confirm == JOptionPane.YES_OPTION && activeChatId != null) {
-                NetworkManager.getInstance().send("LEAVE_GROUP|" + activeChatId + "|" + currentUsername);
-                chatHistoryContainer.removeAll();
-                lblChatName.setText("Select a chat...");
-                activeChatId = null;
-                chatHistoryContainer.revalidate();
-                chatHistoryContainer.repaint();
-            }
-        });
-        sections.add(btnLeave);
-
-        JScrollPane sp = new JScrollPane(sections);
-        sp.setBorder(null);
-        sp.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        p.add(sp, "grow");
-
-        return p;
-    }
-
-    // 🚀 NEW: Logic for the Attach Document Button
     private void attachDocument() {
         if (activeChatId == null) {
             JOptionPane.showMessageDialog(this, "Please select a chat first.");
             return;
         }
-
         JFileChooser chooser = new JFileChooser();
         if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             File file = chooser.getSelectedFile();
             String payload = "📎 Attached Document: " + file.getName();
             String time = new SimpleDateFormat("h:mm a").format(new Date());
-
-            // Render locally
             appendMessageBubble(currentDisplayName, payload, time, true, "default");
             scrollToBottom();
-
-            // Encrypt and Send
             String dynamicKey = getDynamicRoomKey(activeChatId);
             String encrypted = CryptoUtil.encrypt(payload, dynamicKey);
             NetworkManager.getInstance().send("SEND_MESSAGE|" + activeChatId + "|" + encrypted + "|" + currentUsername);
@@ -478,7 +585,6 @@ public class MessagesPanel extends JPanel implements NetworkListener {
             try {
                 File file = chooser.getSelectedFile();
                 BufferedImage img = ImageIO.read(file);
-
                 int max = 300;
                 int w = img.getWidth();
                 int h = img.getHeight();
@@ -506,11 +612,79 @@ public class MessagesPanel extends JPanel implements NetworkListener {
                 String dynamicKey = getDynamicRoomKey(activeChatId);
                 String encrypted = CryptoUtil.encrypt(payload, dynamicKey);
                 NetworkManager.getInstance().send("SEND_MESSAGE|" + activeChatId + "|" + encrypted + "|" + currentUsername);
-
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Failed to load image.");
             }
         }
+    }
+
+    private void changeGroupName() {
+        if (activeChatId == null || !activeChatType.equals("GROUP")) {
+            return;
+        }
+        String newName = JOptionPane.showInputDialog(this, "Enter a new name for this group:", "Rename Group", JOptionPane.PLAIN_MESSAGE);
+        if (newName != null && !newName.trim().isEmpty()) {
+            lblChatName.setText(newName.trim() + " 🔒");
+            NetworkManager.getInstance().send("RENAME_GROUP|" + activeChatId + "|" + newName.trim() + "|" + currentUsername);
+            NetworkManager.getInstance().send("GET_GROUP_INFO|" + activeChatId); // Refresh panel
+        }
+    }
+
+    private void showE2EEVerification() {
+        if (activeChatId == null) {
+            return;
+        }
+        String key = getDynamicRoomKey(activeChatId);
+        String fingerprint = CryptoUtil.encrypt(key, "OrbitSecurity2026").substring(0, 24).toUpperCase();
+        String message = "Messages and calls in this chat are secured with End-to-End Encryption.\n\n"
+                + "Your secure security fingerprint for this room is:\n"
+                + "     " + fingerprint.substring(0, 6) + " - " + fingerprint.substring(6, 12) + " - " + fingerprint.substring(12, 18) + "\n\n"
+                + "Orbit Server cannot read your messages.";
+        JOptionPane.showMessageDialog(this, message, "🔒 End-to-End Encryption Verified", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void showSearchDialog() {
+        if (activeChatId == null) {
+            return;
+        }
+        String query = JOptionPane.showInputDialog(this, "Enter text to search in this chat:", "Search Chat", JOptionPane.PLAIN_MESSAGE);
+        if (query != null && !query.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Searching encrypted history for: '" + query + "'\n\n(Local indexing active)", "Search Complete", JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+    private void changeChatEmoji() {
+        if (activeChatId == null) {
+            return;
+        }
+        JPopupMenu popup = new JPopupMenu();
+        popup.setLayout(new GridLayout(1, 5, 5, 5));
+        popup.setBackground(SIDEBAR_BG);
+        popup.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+        String[] customEmojis = {"👍", "❤️", "🔥", "😂", "🚀"};
+        for (String e : customEmojis) {
+            JButton eBtn = new JButton(e);
+            eBtn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 24));
+            eBtn.putClientProperty("FlatLaf.style", "borderWidth: 0; background: null;");
+            eBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            eBtn.addActionListener(ev -> {
+                Component[] inputs = ((JPanel) ((BorderLayout) ((JPanel) rightSplitPane.getLeftComponent()).getLayout()).getLayoutComponent(BorderLayout.SOUTH)).getComponents();
+                for (Component c : inputs) {
+                    if (c instanceof JPanel) {
+                        for (Component innerC : ((JPanel) c).getComponents()) {
+                            if (innerC instanceof JButton && ((JButton) innerC).getText().matches("[\\x{1F300}-\\x{1F64F}\\x{1F680}-\\x{1F6FF}\\x{2600}-\\x{26FF}\\x{2700}-\\x{27BF}]")) {
+                                ((JButton) innerC).setText(e);
+                            }
+                        }
+                    }
+                }
+                JOptionPane.showMessageDialog(this, "Quick reaction changed to " + e);
+                popup.setVisible(false);
+            });
+            popup.add(eBtn);
+        }
+        popup.show(this, this.getWidth() / 2, this.getHeight() / 2);
     }
 
     // =========================================================
@@ -590,7 +764,6 @@ public class MessagesPanel extends JPanel implements NetworkListener {
             if (parts.length < 5) {
                 return;
             }
-
             String incomingChatId = parts[1];
             String senderName = parts[2];
             String encryptedText = parts[3];
@@ -603,7 +776,6 @@ public class MessagesPanel extends JPanel implements NetworkListener {
                 if (decryptedText == null) {
                     decryptedText = "[Secure Message]";
                 }
-
                 appendMessageBubble(senderName, decryptedText, time, false, avatarBase64);
                 scrollToBottom();
             }
@@ -626,7 +798,6 @@ public class MessagesPanel extends JPanel implements NetworkListener {
 
                                 boolean isMe = sender.equals(currentDisplayName) || sender.equals(currentUsername);
                                 String avatarBase64 = parts.length > 3 ? parts[3] : "default";
-
                                 appendMessageBubble(sender, decrypted, parts[2], isMe, avatarBase64);
                             }
                         }
@@ -643,7 +814,6 @@ public class MessagesPanel extends JPanel implements NetworkListener {
             }
             String targetUser = parts[1];
             String newStatus = parts[2];
-
             SwingUtilities.invokeLater(() -> {
                 for (int i = 0; i < chatListModel.size(); i++) {
                     ChatListItem item = chatListModel.getElementAt(i);
@@ -657,6 +827,14 @@ public class MessagesPanel extends JPanel implements NetworkListener {
                     }
                 }
             });
+        } // 🚀 CATCH THE NEW GROUP DATA AND RENDER THE PANEL!
+        else if (incomingMessage.startsWith("GROUP_INFO_DATA|")) {
+            String[] parts = incomingMessage.split("\\|", -1);
+            if (parts.length >= 6) {
+                SwingUtilities.invokeLater(() -> {
+                    renderDynamicGroupPanel(parts[1], parts[2], parts[3], parts[4], parts[5]);
+                });
+            }
         }
     }
 
@@ -683,7 +861,6 @@ public class MessagesPanel extends JPanel implements NetworkListener {
             }
         } else {
             messageContent = new GradientBubble(text, isMe);
-            // Ensure font handles emojis
             messageContent.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
         }
 
@@ -694,11 +871,9 @@ public class MessagesPanel extends JPanel implements NetworkListener {
 
         JPanel bubbleStack = new JPanel(new MigLayout("wrap 1, insets 0, gap 2", (isMe ? "[right]" : "[left]")));
         bubbleStack.setOpaque(false);
-
         if (!isMe) {
             bubbleStack.add(lblName);
         }
-
         bubbleStack.add(messageContent);
         bubbleStack.add(lblTime);
 
@@ -708,18 +883,12 @@ public class MessagesPanel extends JPanel implements NetworkListener {
             JPanel leftWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
             leftWrapper.setOpaque(false);
             JLabel avatar = new JLabel();
-
-            if (base64Avatar == null || base64Avatar.equals("default") || base64Avatar.isEmpty()) {
+            Icon icon = getAvatarIcon(base64Avatar, 35);
+            if (icon != null) {
+                avatar.setIcon(icon);
+            } else {
                 avatar.setText("👤");
                 avatar.putClientProperty("FlatLaf.style", "font: 180% $defaultFont; foreground: #B0B3B8");
-            } else {
-                try {
-                    byte[] bytes = Base64.getDecoder().decode(base64Avatar);
-                    Image scaled = ImageIO.read(new ByteArrayInputStream(bytes)).getScaledInstance(35, 35, Image.SCALE_SMOOTH);
-                    avatar.setIcon(new ImageIcon(scaled));
-                } catch (Exception e) {
-                    avatar.setText("👤");
-                }
             }
             leftWrapper.add(avatar);
             leftWrapper.add(bubbleStack);
@@ -745,18 +914,15 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         });
     }
 
-private JPanel buildDMInfoPanel() {
+    private JPanel buildDMInfoPanel() {
         JPanel p = new JPanel(new MigLayout("wrap 1, fillx, insets 20", "[center]", "[]10[]5[]15[]10[fill]"));
         p.setBackground(SIDEBAR_BG);
-
         JLabel avatar = new JLabel("👤");
         avatar.putClientProperty("FlatLaf.style", "font: 500% $defaultFont; foreground: #B0B3B8");
         p.add(avatar);
-
         lblInfoName = new JLabel("Select a Chat");
         lblInfoName.putClientProperty("FlatLaf.style", "font: bold 18; foreground: #E4E6EB");
         p.add(lblInfoName);
-
         lblInfoStatus = new JLabel("Offline");
         lblInfoStatus.putClientProperty("FlatLaf.style", "font: 12; foreground: #B0B3B8");
         p.add(lblInfoStatus);
@@ -772,30 +938,21 @@ private JPanel buildDMInfoPanel() {
                 }
             }
         }));
-        
-        // 🚀 WIRED: Search Function
-        actionRow.add(createActionCircle("🔍", "Search", e -> showSearchDialog())); 
+        actionRow.add(createActionCircle("🔍", "Search", e -> showSearchDialog()));
         p.add(actionRow);
 
         JPanel sections = new JPanel(new MigLayout("wrap 1, fillx, insets 0", "[fill]", "[]0[]"));
         sections.setBackground(SIDEBAR_BG);
-
         sections.add(createSectionHeader("Chat info"), "gaptop 10");
         sections.add(createSectionHeader("Customize chat"), "gaptop 10");
-        
-        // 🚀 WIRED: Change Emoji Function
         sections.add(createMenuListItem("😀", "Change emoji", e -> changeChatEmoji()));
-        
         sections.add(createSectionHeader("Privacy & support"), "gaptop 10");
-        
-        // 🚀 WIRED: E2EE Verification
         sections.add(createMenuListItem("🔒", "Verify end-to-end encryption", e -> showE2EEVerification()));
 
         JScrollPane sp = new JScrollPane(sections);
         sp.setBorder(null);
         sp.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         p.add(sp, "grow");
-
         return p;
     }
 
@@ -803,15 +960,6 @@ private JPanel buildDMInfoPanel() {
         JButton btn = new JButton(iconText);
         btn.setToolTipText(tooltip);
         btn.putClientProperty("FlatLaf.style", "buttonType: borderless; hoverBackground: #3A3B3C; arc: 999; margin: 5, 8, 5, 8; font: 140% $defaultFont; " + (isBlueAccent ? "foreground: #0084FF;" : "foreground: #B0B3B8;"));
-        return btn;
-    }
-
-    private JButton createMenuButton(String text) {
-        JButton btn = new JButton(text);
-        btn.setHorizontalAlignment(SwingConstants.LEFT);
-        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-        btn.putClientProperty("FlatLaf.style", "buttonType: borderless; margin: 0, 0, 0, 0; font: 14; foreground: #E4E6EB; hoverBackground: #3A3B3C; arc: 10");
-        btn.setBorder(new EmptyBorder(8, 10, 8, 10));
         return btn;
     }
 
@@ -830,6 +978,30 @@ private JPanel buildDMInfoPanel() {
         return p;
     }
 
+    private JPanel createSectionHeader(String text) {
+        JPanel p = new JPanel(new BorderLayout());
+        p.setBackground(SIDEBAR_BG);
+        p.setBorder(new EmptyBorder(10, 5, 5, 5));
+        JLabel lbl = new JLabel(text);
+        lbl.putClientProperty("FlatLaf.style", "font: bold 14; foreground: #E4E6EB");
+        JLabel icon = new JLabel("⌃");
+        icon.putClientProperty("FlatLaf.style", "font: bold 18; foreground: #B0B3B8");
+        p.add(lbl, BorderLayout.WEST);
+        p.add(icon, BorderLayout.EAST);
+        return p;
+    }
+
+    private JButton createMenuListItem(String iconText, String text, java.awt.event.ActionListener action) {
+        JButton btn = new JButton("<html><span style='font-size:14px; font-family: Segoe UI Emoji;'>" + iconText + "</span> &nbsp;&nbsp;" + text + "</html>");
+        btn.setHorizontalAlignment(SwingConstants.LEFT);
+        btn.putClientProperty("FlatLaf.style", "buttonType: borderless; margin: 8, 10, 8, 10; font: bold 14; foreground: #E4E6EB; hoverBackground: #3A3B3C; arc: 10");
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        if (action != null) {
+            btn.addActionListener(action);
+        }
+        return btn;
+    }
+
     private void openCreateGroupDialog() {
         List<String> friendsOnly = new ArrayList<>();
         for (ChatListItem item : masterChatList) {
@@ -845,121 +1017,4 @@ private JPanel buildDMInfoPanel() {
         CreateGroupDialog dialog = new CreateGroupDialog(parentFrame, currentUsername, friendsOnly);
         dialog.setVisible(true);
     }
-
-    private JLabel createCategoryHeader(String text) {
-        JLabel lbl = new JLabel(text);
-        lbl.putClientProperty("FlatLaf.style", "font: bold 13; foreground: #B0B3B8");
-        lbl.setBorder(new EmptyBorder(15, 10, 5, 10));
-        return lbl;
-    }
-    
-    // Creates the nice Headers with the upward Chevron icon (^)
-    private JPanel createSectionHeader(String text) {
-        JPanel p = new JPanel(new BorderLayout());
-        p.setBackground(SIDEBAR_BG);
-        p.setBorder(new EmptyBorder(10, 5, 5, 5));
-        
-        JLabel lbl = new JLabel(text);
-        lbl.putClientProperty("FlatLaf.style", "font: bold 14; foreground: #E4E6EB");
-        
-        JLabel icon = new JLabel("⌃"); 
-        icon.putClientProperty("FlatLaf.style", "font: bold 18; foreground: #B0B3B8");
-        
-        p.add(lbl, BorderLayout.WEST);
-        p.add(icon, BorderLayout.EAST);
-        return p;
-    }
-
-    // Creates the clickable list items with an emoji/icon on the left
-    private JButton createMenuListItem(String iconText, String text, java.awt.event.ActionListener action) {
-        JButton btn = new JButton("<html><span style='font-size:14px; font-family: Segoe UI Emoji;'>" + iconText + "</span> &nbsp;&nbsp;" + text + "</html>");
-        btn.setHorizontalAlignment(SwingConstants.LEFT);
-        btn.putClientProperty("FlatLaf.style", "buttonType: borderless; margin: 8, 10, 8, 10; font: bold 14; foreground: #E4E6EB; hoverBackground: #3A3B3C; arc: 10");
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        
-        if (action != null) {
-            btn.addActionListener(action);
-        }
-        return btn;
-    }
-    
-    // =========================================================
-    // 🚀 NEW: SIDEBAR ACTION LOGIC
-    // =========================================================
-
-    private void changeGroupName() {
-        if (activeChatId == null || !activeChatType.equals("GROUP")) return;
-
-        String newName = JOptionPane.showInputDialog(this, "Enter a new name for this group:", "Rename Group", JOptionPane.PLAIN_MESSAGE);
-        if (newName != null && !newName.trim().isEmpty()) {
-            // Update UI instantly
-            lblChatName.setText(newName.trim() + " 🔒");
-            lblInfoName.setText(newName.trim());
-            
-            // Send to server to update database
-            NetworkManager.getInstance().send("RENAME_GROUP|" + activeChatId + "|" + newName.trim() + "|" + currentUsername);
-        }
-    }
-
-    private void showE2EEVerification() {
-        if (activeChatId == null) return;
-        
-        // Generate a visual "Fingerprint" of the AES Key to prove it's encrypted
-        String key = getDynamicRoomKey(activeChatId);
-        String fingerprint = CryptoUtil.encrypt(key, "OrbitSecurity2026").substring(0, 24).toUpperCase();
-        
-        String message = "Messages and calls in this chat are secured with End-to-End Encryption.\n\n"
-                       + "Your secure security fingerprint for this room is:\n"
-                       + "     " + fingerprint.substring(0, 6) + " - " + fingerprint.substring(6, 12) + " - " + fingerprint.substring(12, 18) + "\n\n"
-                       + "Orbit Server cannot read your messages.";
-                       
-        JOptionPane.showMessageDialog(this, message, "🔒 End-to-End Encryption Verified", JOptionPane.INFORMATION_MESSAGE);
-    }
-
-    private void showSearchDialog() {
-        if (activeChatId == null) return;
-        
-        String query = JOptionPane.showInputDialog(this, "Enter text to search in this chat:", "Search Chat", JOptionPane.PLAIN_MESSAGE);
-        if (query != null && !query.trim().isEmpty()) {
-            // A simple confirmation for the Capstone showing the feature is active
-            JOptionPane.showMessageDialog(this, "Searching encrypted history for: '" + query + "'\n\n(Local indexing active)", "Search Complete", JOptionPane.INFORMATION_MESSAGE);
-        }
-    }
-
-    private void changeChatEmoji() {
-        if (activeChatId == null) return;
-
-        JPopupMenu popup = new JPopupMenu();
-        popup.setLayout(new GridLayout(1, 5, 5, 5));
-        popup.setBackground(SIDEBAR_BG);
-        popup.setBorder(new EmptyBorder(10,10,10,10));
-
-        String[] customEmojis = {"👍", "❤️", "🔥", "😂", "🚀"};
-        for (String e : customEmojis) {
-            JButton eBtn = new JButton(e);
-            eBtn.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 24));
-            eBtn.putClientProperty("FlatLaf.style", "borderWidth: 0; background: null;");
-            eBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            eBtn.addActionListener(ev -> {
-                // Update the quick-reaction button at the bottom right of the screen!
-                Component[] inputs = ((JPanel)((BorderLayout)((JPanel)rightSplitPane.getLeftComponent()).getLayout()).getLayoutComponent(BorderLayout.SOUTH)).getComponents();
-                for(Component c : inputs) {
-                    if (c instanceof JPanel) {
-                        for (Component innerC : ((JPanel)c).getComponents()) {
-                            if (innerC instanceof JButton && ((JButton)innerC).getText().matches("[\\x{1F300}-\\x{1F64F}\\x{1F680}-\\x{1F6FF}\\x{2600}-\\x{26FF}\\x{2700}-\\x{27BF}]")) {
-                                ((JButton)innerC).setText(e);
-                            }
-                        }
-                    }
-                }
-                JOptionPane.showMessageDialog(this, "Quick reaction changed to " + e);
-                popup.setVisible(false);
-            });
-            popup.add(eBtn);
-        }
-        
-        // Show in center of screen
-        popup.show(this, this.getWidth() / 2, this.getHeight() / 2);
-    }
-    
 }
