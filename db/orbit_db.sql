@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Mar 26, 2026 at 07:32 PM
+-- Generation Time: Mar 26, 2026 at 08:15 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -33,16 +33,24 @@ CREATE TABLE `chat_members` (
   `nickname` varchar(50) DEFAULT NULL,
   `role` enum('MEMBER','ADMIN') DEFAULT 'MEMBER',
   `joined_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `left_at` timestamp NULL DEFAULT NULL
+  `left_at` timestamp NULL DEFAULT NULL,
+  `encrypted_key` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `chat_members`
 --
 
-INSERT INTO `chat_members` (`conversation_id`, `user_id`, `nickname`, `role`, `joined_at`, `left_at`) VALUES
-(1, 5, NULL, 'MEMBER', '2026-03-26 14:58:27', NULL),
-(1, 6, NULL, 'MEMBER', '2026-03-26 14:58:27', NULL);
+INSERT INTO `chat_members` (`conversation_id`, `user_id`, `nickname`, `role`, `joined_at`, `left_at`, `encrypted_key`) VALUES
+(10, 5, NULL, 'MEMBER', '2026-03-26 18:54:53', NULL, NULL),
+(10, 6, NULL, 'MEMBER', '2026-03-26 18:54:53', NULL, NULL),
+(16, 5, NULL, 'MEMBER', '2026-03-26 19:03:55', NULL, NULL),
+(16, 7, NULL, 'MEMBER', '2026-03-26 19:03:55', NULL, NULL),
+(17, 6, NULL, 'MEMBER', '2026-03-26 19:08:21', NULL, NULL),
+(17, 7, NULL, 'MEMBER', '2026-03-26 19:08:21', NULL, NULL),
+(18, 5, NULL, 'MEMBER', '2026-03-26 19:09:19', NULL, 'W5xN/UHxhH9bCVjYZ+jx45Q6n4RI8pUS6k5GazoM+Qo='),
+(18, 6, NULL, 'MEMBER', '2026-03-26 19:09:19', NULL, 'zCkTc9BgOuFd+bOzqfURQzk2qwguC+yIO7mFbyF1f8A='),
+(18, 7, NULL, 'MEMBER', '2026-03-26 19:09:19', NULL, 'mfPIGtHStL/zORiUisPKkllQSY/KQUuJ/Ja4w+rC8Gk=');
 
 -- --------------------------------------------------------
 
@@ -52,7 +60,7 @@ INSERT INTO `chat_members` (`conversation_id`, `user_id`, `nickname`, `role`, `j
 
 CREATE TABLE `conversations` (
   `id` int(11) NOT NULL,
-  `type` enum('DIRECT','GROUP') NOT NULL,
+  `type` varchar(50) DEFAULT NULL,
   `group_name` varchar(100) DEFAULT NULL,
   `group_photo_url` varchar(255) DEFAULT NULL,
   `custom_emoji` varchar(10) DEFAULT '?',
@@ -65,7 +73,10 @@ CREATE TABLE `conversations` (
 --
 
 INSERT INTO `conversations` (`id`, `type`, `group_name`, `group_photo_url`, `custom_emoji`, `created_by`, `created_at`) VALUES
-(1, 'DIRECT', NULL, NULL, '👍', NULL, '2026-03-26 14:58:27');
+(10, 'DIRECT', NULL, NULL, '👍', NULL, '2026-03-26 18:54:53'),
+(16, 'DIRECT', NULL, NULL, '👍', NULL, '2026-03-26 19:03:55'),
+(17, 'DIRECT', NULL, NULL, '👍', NULL, '2026-03-26 19:08:21'),
+(18, 'GROUP', 'da', NULL, '👍', NULL, '2026-03-26 19:09:19');
 
 -- --------------------------------------------------------
 
@@ -87,7 +98,9 @@ CREATE TABLE `friendships` (
 --
 
 INSERT INTO `friendships` (`id`, `requester_id`, `receiver_id`, `status`, `created_at`, `updated_at`) VALUES
-(8, 6, 5, 'ACCEPTED', '2026-03-26 14:49:11', '2026-03-26 14:49:15');
+(10, 7, 5, 'ACCEPTED', '2026-03-26 18:49:53', '2026-03-26 18:50:06'),
+(11, 6, 5, 'ACCEPTED', '2026-03-26 18:51:18', '2026-03-26 18:51:23'),
+(12, 7, 6, 'ACCEPTED', '2026-03-26 18:52:07', '2026-03-26 18:52:12');
 
 -- --------------------------------------------------------
 
@@ -110,10 +123,14 @@ CREATE TABLE `messages` (
 --
 
 INSERT INTO `messages` (`id`, `conversation_id`, `sender_id`, `encrypted_content`, `attachment_url`, `is_pinned`, `created_at`) VALUES
-(18, 1, 5, 'iPMP3OGfFFZV9arNERG5tw==', NULL, 0, '2026-03-26 15:40:44'),
-(19, 1, 6, 'TGtW3jm4Sq3IFH/kh0iIMw==', NULL, 0, '2026-03-26 15:41:03'),
-(20, 1, 5, 'ZjvCaoacNvRYP5xyQKymGQ==', NULL, 0, '2026-03-26 16:34:55'),
-(21, 1, 6, 'kW4VvRTqNvAaQTbVGvbNdw==', NULL, 0, '2026-03-26 18:25:16');
+(26, 10, 6, '1nshM0nz4TNKGsRtxYd9YA==', NULL, 0, '2026-03-26 19:08:25'),
+(27, 10, 5, 'fFK+c0/nqh17ZdQwbdUaFA==', NULL, 0, '2026-03-26 19:08:48'),
+(28, 18, 6, 'ZKxn8Z0kYm82IlODnZ351Q==', NULL, 0, '2026-03-26 19:09:31'),
+(29, 18, 5, '5B5Cb1LCevOL8L5khSA1sw==', NULL, 0, '2026-03-26 19:09:37'),
+(30, 18, 6, 'RU0jkN7MD21YDFDJFdLIOg==', NULL, 0, '2026-03-26 19:09:43'),
+(31, 18, 5, 'xEgXeLkbqf/KIFjwcNLPeQ==', NULL, 0, '2026-03-26 19:10:24'),
+(32, 18, 7, 'YjQEiXz+zpf8Jn3pKd8ZYjCJ0SZq6zY7KWhKtsu2GGc=', NULL, 0, '2026-03-26 19:10:54'),
+(33, 18, 6, '4xzKEvKFJQHsETEJvGA3Mw==', NULL, 0, '2026-03-26 19:11:07');
 
 -- --------------------------------------------------------
 
@@ -252,19 +269,19 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `conversations`
 --
 ALTER TABLE `conversations`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT for table `friendships`
 --
 ALTER TABLE `friendships`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT for table `messages`
 --
 ALTER TABLE `messages`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
 
 --
 -- AUTO_INCREMENT for table `posts`

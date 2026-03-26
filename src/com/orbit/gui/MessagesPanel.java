@@ -20,7 +20,6 @@ public class MessagesPanel extends JPanel implements NetworkListener {
     private final String ROOM_SECRET_KEY = "OrbitCapstone2026!";
 
     private class ChatListItem {
-
         String id, displayName, type, lastTime;
 
         public ChatListItem(String id, String displayName, String type, String lastTime) {
@@ -73,8 +72,8 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         NetworkManager.getInstance().addListener(this);
         NetworkManager.getInstance().send("GET_MY_CHATS|" + currentUsername);
 
-        // 🚀 UPDATED: Time format to 12:30 PM
-        appendMessageBubble("System", "Welcome to Orbit! Select a chat to begin.", new SimpleDateFormat("h:mm a").format(new Date()), false);
+        // 🚀 UPDATED: System message passed with "default" avatar
+        appendMessageBubble("System", "Welcome to Orbit! Select a chat to begin.", new SimpleDateFormat("h:mm a").format(new Date()), false, "default");
     }
 
     private void initComponents() {
@@ -84,7 +83,7 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         leftPanel.setPreferredSize(new Dimension(320, 0));
         leftPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, Color.decode("#393A3B")));
 
-// --- LEFT PANEL HEADER ---
+        // --- LEFT PANEL HEADER ---
         JPanel filterPanel = new JPanel(new BorderLayout());
         filterPanel.setBackground(SIDEBAR_BG);
         filterPanel.setBorder(new EmptyBorder(15, 15, 5, 15));
@@ -93,7 +92,6 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         lblChats.putClientProperty("FlatLaf.style", "font: bold 24; foreground: #E4E6EB");
         filterPanel.add(lblChats, BorderLayout.WEST);
 
-        // 🚀 THE FIX: Add the "Create Group" button next to "Chats"
         JButton btnNewGroup = createIconButton("📝", "Create New Group", false);
         btnNewGroup.addActionListener(e -> openCreateGroupDialog());
         filterPanel.add(btnNewGroup, BorderLayout.EAST);
@@ -108,17 +106,9 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         txtSearch.setBorder(new EmptyBorder(8, 15, 8, 15));
 
         txtSearch.getDocument().addDocumentListener(new DocumentListener() {
-            public void insertUpdate(DocumentEvent e) {
-                filterChats();
-            }
-
-            public void removeUpdate(DocumentEvent e) {
-                filterChats();
-            }
-
-            public void changedUpdate(DocumentEvent e) {
-                filterChats();
-            }
+            public void insertUpdate(DocumentEvent e) { filterChats(); }
+            public void removeUpdate(DocumentEvent e) { filterChats(); }
+            public void changedUpdate(DocumentEvent e) { filterChats(); }
 
             private void filterChats() {
                 String query = txtSearch.getText().toLowerCase();
@@ -152,7 +142,7 @@ public class MessagesPanel extends JPanel implements NetworkListener {
                     lblChatName.setText(selectedItem.displayName + " 🔒");
                 }
 
-                // 🚀 THE FIX: Update the Right Info Panel labels!
+                // Update Right Info Panel labels
                 if (lblInfoName != null) {
                     lblInfoName.setText(selectedItem.displayName);
                 }
@@ -240,9 +230,10 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         txtChatInput.addActionListener(e -> {
             String msg = txtChatInput.getText().trim();
             if (!msg.isEmpty() && activeChatId != null) {
-                // 🚀 UPDATED: Format to h:mm a
                 String time = new SimpleDateFormat("h:mm a").format(new Date());
-                appendMessageBubble(currentDisplayName, msg, time, true);
+                
+                // 🚀 FIXED: Pass "default" for our own sent messages since they appear on the right
+                appendMessageBubble(currentDisplayName, msg, time, true, "default");
                 scrollToBottom();
                 txtChatInput.setText("");
                 String dynamicKey = getDynamicRoomKey(activeChatId);
@@ -280,7 +271,6 @@ public class MessagesPanel extends JPanel implements NetworkListener {
     }
 
     private class ChatListCellRenderer extends JPanel implements ListCellRenderer<ChatListItem> {
-
         private JLabel lblAvatar, lblName, lblTime;
 
         public ChatListCellRenderer() {
@@ -300,7 +290,6 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         @Override
         public Component getListCellRendererComponent(JList<? extends ChatListItem> list, ChatListItem value, int index, boolean isSelected, boolean cellHasFocus) {
             if (value != null) {
-                // Scrub "null" from left list
                 String nameToDraw = (value.displayName == null || value.displayName.equalsIgnoreCase("null")) ? value.id : value.displayName;
                 lblName.setText(nameToDraw);
                 lblAvatar.setText("GROUP".equals(value.type) ? "👥" : "👤");
@@ -314,24 +303,17 @@ public class MessagesPanel extends JPanel implements NetworkListener {
 
     private String getDynamicRoomKey(String targetId) {
         String base;
-
         if (activeChatType.equals("GROUP")) {
-            // Groups use the Group ID as the key base
             base = "OrbitGroup_" + targetId;
         } else {
-            // DMs: Sort usernames alphabetically so both users generate the EXACT same key
-            // Example: "howard" and "angely" both become "angely_howard"
             String user1 = currentUsername.toLowerCase();
             String user2 = targetId.toLowerCase();
-
             if (user1.compareTo(user2) < 0) {
                 base = user1 + "_" + user2;
             } else {
                 base = user2 + "_" + user1;
             }
         }
-
-        // Hash it slightly to make it 16 bytes for AES
         String baseSecret = "Orbit_" + base + "_2026";
         if (baseSecret.length() > 16) {
             return baseSecret.substring(0, 16);
@@ -343,7 +325,6 @@ public class MessagesPanel extends JPanel implements NetworkListener {
     public void onMessageReceived(String incomingMessage) {
         // 1. POPULATE CHATS
         if (incomingMessage.startsWith("MY_CHATS|")) {
-            System.out.println("📦 RAW CHAT DATA FROM SERVER: " + incomingMessage);
             String data = incomingMessage.substring(9);
             String[] chats = data.split(",");
             SwingUtilities.invokeLater(() -> {
@@ -352,11 +333,11 @@ public class MessagesPanel extends JPanel implements NetworkListener {
                 for (String c : chats) {
                     if (!c.isEmpty()) {
                         String[] parts = c.split("~");
-                        if (parts.length >= 4) { // Now expecting 4 parts: ID, Name, Type, Status
+                        if (parts.length >= 4) {
                             String id = parts[0];
                             String name = parts[1];
                             String type = parts[2];
-                            String status = parts[3]; // "Active Now" or "Offline"
+                            String status = parts[3];
 
                             ChatListItem item = new ChatListItem(id, name, type, status);
                             masterChatList.add(item);
@@ -365,32 +346,34 @@ public class MessagesPanel extends JPanel implements NetworkListener {
                     }
                 }
             });
-        } // 2. RECEIVE LIVE MESSAGE
+        } 
+        // 2. RECEIVE LIVE MESSAGE
         else if (incomingMessage.startsWith("NEW_MESSAGE|")) {
             String[] parts = incomingMessage.split("\\|");
-            if (parts.length < 5) {
-                return;
-            }
+            if (parts.length < 5) return;
 
-            String incomingChatId = parts[1]; // This is the sender's username
+            String incomingChatId = parts[1]; 
             String senderName = parts[2];
             String encryptedText = parts[3];
             String time = parts[4];
+            
+            // 🚀 FIXED: Grab the avatar if it was sent by the server
+            String avatarBase64 = parts.length > 5 ? parts[5] : "default";
 
-            // Use our new sorted key logic to decrypt
             if (incomingChatId.equals(activeChatId)) {
                 String dynamicKey = getDynamicRoomKey(incomingChatId);
                 String decryptedText = CryptoUtil.decrypt(encryptedText, dynamicKey);
 
-                // Final protection against decryption failure
                 if (decryptedText == null) {
                     decryptedText = "[Secure Message]";
                 }
 
-                appendMessageBubble(senderName, decryptedText, time, false);
+                // 🚀 FIXED: Pass the Avatar to the bubble builder
+                appendMessageBubble(senderName, decryptedText, time, false, avatarBase64);
                 scrollToBottom();
             }
-        } // 3. RECEIVE HISTORY
+        } 
+        // 3. RECEIVE HISTORY
         else if (incomingMessage.startsWith("CHAT_HISTORY|")) {
             String data = incomingMessage.length() > 13 ? incomingMessage.substring(13) : "";
             SwingUtilities.invokeLater(() -> {
@@ -410,7 +393,12 @@ public class MessagesPanel extends JPanel implements NetworkListener {
                                 }
 
                                 boolean isMe = sender.equals(currentDisplayName) || sender.equals(currentUsername);
-                                appendMessageBubble(sender, decrypted, parts[2], isMe);
+                                
+                                // 🚀 FIXED: Grab the avatar from history
+                                String avatarBase64 = parts.length > 3 ? parts[3] : "default";
+                                
+                                // 🚀 FIXED: Pass the Avatar to the bubble builder
+                                appendMessageBubble(sender, decrypted, parts[2], isMe, avatarBase64);
                             }
                         }
                     }
@@ -419,46 +407,32 @@ public class MessagesPanel extends JPanel implements NetworkListener {
                 chatHistoryContainer.revalidate();
                 chatHistoryContainer.repaint();
             });
-        } else if (incomingMessage.startsWith("UPDATE_STATUS|")) {
+        } 
+        else if (incomingMessage.startsWith("UPDATE_STATUS|")) {
             String[] parts = incomingMessage.split("\\|");
-            if (parts.length < 3) {
-                return;
-            }
+            if (parts.length < 3) return;
 
             String targetUser = parts[1];
-            String newStatus = parts[2]; // "ONLINE" or "OFFLINE"
+            String newStatus = parts[2]; 
 
             SwingUtilities.invokeLater(() -> {
-                // Loop through the sidebar list to find the friend who changed status
                 for (int i = 0; i < chatListModel.size(); i++) {
                     ChatListItem item = chatListModel.getElementAt(i);
-
-                    // We check if the ID matches the friend's username
                     if (item.id.equals(targetUser)) {
-                        // 1. Update the underlying data for the left sidebar subtext
                         item.lastTime = newStatus.equals("ONLINE") ? "Active Now" : "Offline";
-
-                        // 2. If we are currently looking at THIS user's profile on the right...
                         if (activeChatId != null && activeChatId.equals(targetUser)) {
-                            // ...Update the Right Info Panel status label immediately
                             lblInfoStatus.setText(item.lastTime);
-
-                            // Optional: Update the "Active now" text under the center header name
-                            // nameStack.getComponent(1).setText(item.lastTime);
                         }
-
-                        // 3. Refresh the UI so the changes appear on screen
                         chatList.repaint();
-                        break; // Exit the loop since we found our target
+                        break; 
                     }
                 }
             });
         }
-
     }
 
-private void appendMessageBubble(String sender, String text, String time, boolean isMe) {
-        // 1. Scrub "null" or empty messages immediately
+    // 🚀 FIXED: The entire bubble method now handles Base64 avatar drawing perfectly!
+    private void appendMessageBubble(String sender, String text, String time, boolean isMe, String base64Avatar) {
         if (text == null || text.equalsIgnoreCase("null") || text.trim().isEmpty()) {
             return;
         }
@@ -469,18 +443,15 @@ private void appendMessageBubble(String sender, String text, String time, boolea
 
         GradientBubble bubble = new GradientBubble(text, isMe);
 
-        // Time Label
         JLabel lblTime = new JLabel(time);
         lblTime.putClientProperty("FlatLaf.style", "font: 10; foreground: #7A7D82");
 
-        // 🚀 NEW: Sender Name Label
         JLabel lblName = new JLabel(sender);
         lblName.putClientProperty("FlatLaf.style", "font: bold 11; foreground: #B0B3B8");
 
         JPanel bubbleStack = new JPanel(new MigLayout("wrap 1, insets 0, gap 2", (isMe ? "[right]" : "[left]")));
         bubbleStack.setOpaque(false);
         
-        // 🚀 NEW: Add the name on top! (Only for incoming messages, just like real apps)
         if (!isMe) {
             bubbleStack.add(lblName);
         }
@@ -489,12 +460,32 @@ private void appendMessageBubble(String sender, String text, String time, boolea
         bubbleStack.add(lblTime);
 
         if (isMe) {
+            // Outgoing messages (My messages)
             row.add(bubbleStack, BorderLayout.EAST);
         } else {
+            // Incoming messages (Friend's messages)
             JPanel leftWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
             leftWrapper.setOpaque(false);
-            JLabel avatar = new JLabel("👤");
-            avatar.putClientProperty("FlatLaf.style", "font: 180% $defaultFont; foreground: #B0B3B8");
+            
+            JLabel avatar = new JLabel();
+            
+            // Render Profile Picture Next to Bubble
+            if (base64Avatar == null || base64Avatar.equals("default") || base64Avatar.isEmpty()) {
+                avatar.setText("👤");
+                avatar.putClientProperty("FlatLaf.style", "font: 180% $defaultFont; foreground: #B0B3B8");
+            } else {
+                try {
+                    byte[] bytes = java.util.Base64.getDecoder().decode(base64Avatar);
+                    java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(bytes));
+                    // Shrink it to 35x35 chat icon
+                    java.awt.Image scaled = img.getScaledInstance(35, 35, java.awt.Image.SCALE_SMOOTH);
+                    avatar.setIcon(new ImageIcon(scaled));
+                } catch (Exception e) {
+                    avatar.setText("👤");
+                    avatar.putClientProperty("FlatLaf.style", "font: 180% $defaultFont; foreground: #B0B3B8");
+                }
+            }
+            
             leftWrapper.add(avatar);
             leftWrapper.add(bubbleStack);
             row.add(leftWrapper, BorderLayout.WEST);
@@ -527,20 +518,17 @@ private void appendMessageBubble(String sender, String text, String time, boolea
         avatar.putClientProperty("FlatLaf.style", "font: 500% $defaultFont; foreground: #B0B3B8");
         p.add(avatar);
 
-        // 🚀 THE FIX: Use the class-level variable instead of a local JLabel
         lblInfoName = new JLabel("Select a Chat");
         lblInfoName.putClientProperty("FlatLaf.style", "font: bold 18; foreground: #E4E6EB");
         p.add(lblInfoName);
 
-        // 🚀 THE FIX: Use the class-level variable for status
         lblInfoStatus = new JLabel("Offline");
         lblInfoStatus.putClientProperty("FlatLaf.style", "font: 12; foreground: #B0B3B8");
         p.add(lblInfoStatus);
 
-JPanel actionRow = new JPanel(new MigLayout("insets 0, gap 20", "[][][]", ""));
+        JPanel actionRow = new JPanel(new MigLayout("insets 0, gap 20", "[][][]", ""));
         actionRow.setBackground(SIDEBAR_BG);
 
-        // 1. Profile Button (Uses the lambda action)
         actionRow.add(createActionCircle("👤", "Profile", e -> {
             if (activeChatId != null) {
                 Component topLevel = SwingUtilities.getAncestorOfClass(JFrame.class, this);
@@ -552,10 +540,7 @@ JPanel actionRow = new JPanel(new MigLayout("insets 0, gap 20", "[][][]", ""));
             }
         }));
 
-        // 2. Mute Button (Passes 'null' for now since we haven't built Mute logic)
         actionRow.add(createActionCircle("🔕", "Mute", null));
-
-        // 3. Search Button (Passes 'null')
         actionRow.add(createActionCircle("🔍", "Search", null));
 
         p.add(actionRow);
@@ -602,15 +587,13 @@ JPanel actionRow = new JPanel(new MigLayout("insets 0, gap 20", "[][][]", ""));
         return btn;
     }
 
-private JPanel createActionCircle(String icon, String labelText, java.awt.event.ActionListener action) {
+    private JPanel createActionCircle(String icon, String labelText, java.awt.event.ActionListener action) {
         JPanel p = new JPanel(new MigLayout("wrap 1, insets 0, align center", "[center]", "[]5[]"));
         p.setOpaque(false);
         
         JButton btn = new JButton(icon);
-        // Styling the circle button
         btn.putClientProperty("FlatLaf.style", "arc: 999; background: #3A3B3C; foreground: #E4E6EB; margin: 12,14,12,14; font: 150% $defaultFont; borderWidth: 0");
         
-        // 🚀 THE FIX: Attach the action to the button!
         if (action != null) {
             btn.addActionListener(action);
         }
@@ -625,11 +608,10 @@ private JPanel createActionCircle(String icon, String labelText, java.awt.event.
     }
 
     private void openCreateGroupDialog() {
-        // Filter the master list to ONLY show DMs (Direct friends)
         List<String> friendsOnly = new ArrayList<>();
         for (ChatListItem item : masterChatList) {
             if ("DM".equals(item.type)) {
-                friendsOnly.add(item.id); // item.id is the username
+                friendsOnly.add(item.id); 
             }
         }
 
@@ -638,7 +620,6 @@ private JPanel createActionCircle(String icon, String labelText, java.awt.event.
             return;
         }
 
-        // Open the secure group creation dialog we built earlier
         Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
         CreateGroupDialog dialog = new CreateGroupDialog(parentFrame, currentUsername, friendsOnly);
         dialog.setVisible(true);
