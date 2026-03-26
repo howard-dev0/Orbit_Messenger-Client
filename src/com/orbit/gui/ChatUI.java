@@ -12,12 +12,16 @@ public class ChatUI extends JFrame {
     private JPanel mainCardPanel;
     private CardLayout cardLayout;
 
+    // 🚀 NEW: Store references to ALL panels so we can refresh them
+    private HomePanel homePanel;
+    private MessagesPanel messagesPanel;
+    private FriendlistPanel friendlistPanel;
+    private ProfilePanel profilePanel;
+
     private final Color MAIN_BG = Color.decode("#18191A");
     private final Color SIDEBAR_BG = Color.decode("#242526");
-    private ProfilePanel profilePanel;
     
-    
-public ChatUI(String username, String displayName) {
+    public ChatUI(String username, String displayName) {
         this.currentUsername = username;
         this.currentDisplayName = displayName;
 
@@ -45,52 +49,84 @@ public ChatUI(String username, String displayName) {
         getContentPane().setBackground(MAIN_BG);
     }
 
+    // Getters so panels can talk to each other
     public ProfilePanel getProfilePanel() {
-    return this.profilePanel;
-}
+        return this.profilePanel;
+    }
+    
+    public HomePanel getHomePanel() {
+        return this.homePanel;
+    }
     
     private void initComponents() {
         setLayout(new BorderLayout());
 
+        // 1. 🚀 INITIALIZE ALL PANELS FIRST
+        homePanel = new HomePanel(currentUsername, currentDisplayName);
+        messagesPanel = new MessagesPanel(currentUsername, currentDisplayName);
+        friendlistPanel = new FriendlistPanel(currentUsername, currentDisplayName);
         profilePanel = new ProfilePanel(currentUsername, currentDisplayName);
         
-        // TOP NAVIGATION BAR
+        // 2. TOP NAVIGATION BAR
         JPanel topNavBar = new JPanel(new FlowLayout(FlowLayout.CENTER, 40, 8));
         topNavBar.setBackground(SIDEBAR_BG);
         topNavBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Color.decode("#393A3B")));
 
-        topNavBar.add(createNavButton("💬", "messages_card", "Messages"));
-        topNavBar.add(createNavButton("🏠", "home_card", "Home"));
-        topNavBar.add(createNavButton("👥", "friends_card", "Friends"));
-        topNavBar.add(createNavButton("👤", "profile_card", "Profile"));
-        topNavBar.add(createNavButton("⚙️", "settings_card", "Settings"));
+        // 3. CREATE BUTTONS AND ADD REFRESH LOGIC
+        JButton btnMessages = createNavButton("💬", "Messages");
+        btnMessages.addActionListener(e -> showCard("messages_card"));
+
+        JButton btnHome = createNavButton("🏠", "Home");
+        btnHome.addActionListener(e -> {
+            showCard("home_card");
+            homePanel.refreshFeed(); // Force feed to refresh when clicked
+        });
+
+        JButton btnFriends = createNavButton("👥", "Friends");
+        btnFriends.addActionListener(e -> {
+            showCard("friends_card");
+            NetworkManager.getInstance().send("GET_FRIEND_REQUESTS|" + currentUsername); // Refresh friends list
+        });
+
+        JButton btnProfile = createNavButton("👤", "Profile");
+        btnProfile.addActionListener(e -> {
+            showCard("profile_card");
+            profilePanel.loadUserProfile(currentUsername); // Load your profile data
+        });
+
+        JButton btnSettings = createNavButton("⚙️", "Settings");
+        btnSettings.addActionListener(e -> showCard("settings_card"));
+
+        topNavBar.add(btnMessages);
+        topNavBar.add(btnHome);
+        topNavBar.add(btnFriends);
+        topNavBar.add(btnProfile);
+        topNavBar.add(btnSettings);
 
         add(topNavBar, BorderLayout.NORTH);
 
-        // MAIN CARD LAYOUT
+        // 4. MAIN CARD LAYOUT
         cardLayout = new CardLayout();
         mainCardPanel = new JPanel(cardLayout);
         mainCardPanel.setBackground(MAIN_BG);
 
-        // --- PLUG IN THE MODULAR PANELS HERE ---
-        mainCardPanel.add(new MessagesPanel(currentUsername, currentDisplayName), "messages_card");
-        mainCardPanel.add(new FriendlistPanel(currentUsername, currentDisplayName), "friends_card");
-        mainCardPanel.add(new ProfilePanel(currentUsername, currentDisplayName), "profile_card");
-        // Placeholders for team members to build later:
-        mainCardPanel.add(buildPlaceholderPanel("Home Feed"), "home_card");
-
-        
+        // 5. --- PLUG IN THE MODULAR PANELS HERE ---
+        // Notice we pass in the variables we initialized in Step 1!
+        mainCardPanel.add(messagesPanel, "messages_card");
+        mainCardPanel.add(homePanel, "home_card");
+        mainCardPanel.add(friendlistPanel, "friends_card");
+        mainCardPanel.add(profilePanel, "profile_card");
         mainCardPanel.add(buildPlaceholderPanel("Settings"), "settings_card");
 
         add(mainCardPanel, BorderLayout.CENTER);
-      
     }
 
-    private JButton createNavButton(String iconText, String cardName, String tooltip) {
+    // Notice we removed 'cardName' parameter so we can add custom ActionListeners above
+    private JButton createNavButton(String iconText, String tooltip) {
         JButton btn = new JButton(iconText);
         btn.setToolTipText(tooltip);
         btn.putClientProperty("FlatLaf.style", "borderWidth: 0; focusWidth: 0; arc: 15; margin: 8, 20, 8, 20; hoverBackground: #3A3B3C; font: 180% $defaultFont; foreground: #B0B3B8");
-        btn.addActionListener(e -> cardLayout.show(mainCardPanel, cardName));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         return btn;
     }
     
@@ -104,7 +140,6 @@ public ChatUI(String username, String displayName) {
     }
     
     public void showCard(String cardName) {
-        // Ensure cardLayout and mainCardPanel are class-level variables!
         if (cardLayout != null && mainCardPanel != null) {
             cardLayout.show(mainCardPanel, cardName);
         } else {

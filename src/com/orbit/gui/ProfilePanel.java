@@ -29,7 +29,6 @@ public class ProfilePanel extends JPanel implements NetworkListener {
     private JLabel lblFriendCount;
     private JButton btnEdit;
     
-    // 🚀 NEW: Class-level Avatar label so we can change its picture
     private JLabel lblAvatar;
 
     private final Color MAIN_BG = Color.decode("#18191A");
@@ -71,7 +70,6 @@ public class ProfilePanel extends JPanel implements NetworkListener {
         headerCard.setBackground(CARD_BG);
         headerCard.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Color.decode("#393A3B")));
 
-        // 🚀 NEW: Set up the Avatar Label
         lblAvatar = new JLabel("👤", SwingConstants.CENTER);
         lblAvatar.setPreferredSize(new Dimension(100, 100));
         lblAvatar.putClientProperty("FlatLaf.style", "font: 600% $defaultFont; foreground: #B0B3B8");
@@ -81,7 +79,6 @@ public class ProfilePanel extends JPanel implements NetworkListener {
         lblAvatar.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-                // Only allow changing the picture if looking at YOUR OWN profile
                 if (btnEdit.isVisible()) {
                     chooseAndUploadAvatar();
                 }
@@ -124,14 +121,12 @@ public class ProfilePanel extends JPanel implements NetworkListener {
         return headerCard;
     }
 
-    // 🚀 NEW: Method to open file picker, shrink image, and send it
     private void chooseAndUploadAvatar() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setFileFilter(new FileNameExtensionFilter("Image Files", "jpg", "png", "jpeg"));
         if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             File file = fileChooser.getSelectedFile();
             try {
-                // Read and compress image to 150x150 so it doesn't crash the socket
                 BufferedImage original = ImageIO.read(file);
                 int size = 150;
                 BufferedImage resized = new BufferedImage(size, size, BufferedImage.TYPE_INT_RGB);
@@ -140,15 +135,11 @@ public class ProfilePanel extends JPanel implements NetworkListener {
                 g2.drawImage(original, 0, 0, size, size, null);
                 g2.dispose();
 
-                // Convert to Base64
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 ImageIO.write(resized, "jpg", baos);
                 String base64Image = Base64.getEncoder().encodeToString(baos.toByteArray());
 
-                // Immediately show it on screen
                 setAvatarImage(base64Image);
-
-                // Send to Server
                 NetworkManager.getInstance().send("UPDATE_AVATAR|" + currentUsername + "|" + base64Image);
                 
             } catch (Exception ex) {
@@ -157,7 +148,6 @@ public class ProfilePanel extends JPanel implements NetworkListener {
         }
     }
 
-    // 🚀 NEW: Helper to draw the Base64 image onto the JLabel
     private void setAvatarImage(String base64) {
         if (base64 == null || base64.equals("default")) {
             lblAvatar.setIcon(null);
@@ -166,7 +156,7 @@ public class ProfilePanel extends JPanel implements NetworkListener {
             try {
                 byte[] bytes = Base64.getDecoder().decode(base64);
                 BufferedImage img = ImageIO.read(new ByteArrayInputStream(bytes));
-                lblAvatar.setText(null); // Clear the emoji
+                lblAvatar.setText(null); 
                 lblAvatar.setIcon(new ImageIcon(img));
             } catch (Exception e) {
                 lblAvatar.setIcon(null);
@@ -187,10 +177,9 @@ public class ProfilePanel extends JPanel implements NetworkListener {
     @Override
     public void onMessageReceived(String incomingMessage) {
         if (incomingMessage.startsWith("PROFILE_DATA|")) {
-            // Notice the -1, it ensures empty parts aren't deleted
             String[] parts = incomingMessage.split("\\|", -1);
             
-            if (parts.length < 7) return; // Wait for full packet
+            if (parts.length < 7) return; 
             
             SwingUtilities.invokeLater(() -> {
                 lblName.setText(parts[2]);
@@ -199,7 +188,6 @@ public class ProfilePanel extends JPanel implements NetworkListener {
                 lblFriendCount.setText(parts[4] + " Friends");
                 btnEdit.setVisible(parts[5].trim().equals("TRUE"));
                 
-                // 🚀 NEW: Load the avatar from part 6
                 setAvatarImage(parts[6]);
 
                 feedContainer.removeAll();
@@ -207,7 +195,6 @@ public class ProfilePanel extends JPanel implements NetworkListener {
                 lblTimeline.putClientProperty("FlatLaf.style", "font: bold 20; foreground: #E4E6EB");
                 feedContainer.add(lblTimeline, "gapbottom 10");
 
-                // 🚀 Notice we changed this from 6 to 7, because Posts are now at index 7!
                 if (parts.length > 7 && parts[7] != null && !parts[7].trim().isEmpty()) {
                     String[] allPosts = parts[7].split("~");
                     for (String p : allPosts) {
@@ -237,16 +224,7 @@ public class ProfilePanel extends JPanel implements NetworkListener {
                 JOptionPane.showMessageDialog(this, "Profile updated successfully!");
             });
         }
-        else if (incomingMessage.equals("AVATAR_SUCCESS")) {
-            // Optional: Show a subtle confirmation
-            System.out.println("Avatar successfully saved to database!");
-        }
     }
-
-    // ... (Keep your showEditDialog and createPostCard methods the same!) ...
-    
-    // I am including a shortened version of them below so the file compiles. 
-    // You can overwrite them with your actual styled versions if you prefer!
 
     private void showEditDialog() {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Edit Profile", true);
@@ -282,6 +260,7 @@ public class ProfilePanel extends JPanel implements NetworkListener {
         dialog.setVisible(true);
     }
 
+    // 🚀 UPGRADED: Post rendering now decodes [IMG] tags on the profile page too!
     private JPanel createPostCard(String authorName, String timeAgo, String content, int likes, int comments) {
         JPanel card = new JPanel(new MigLayout("wrap 1, fillx, insets 15", "[fill]", "[]15[]15[]"));
         card.setBackground(CARD_BG);
@@ -306,13 +285,47 @@ public class ProfilePanel extends JPanel implements NetworkListener {
         
         card.add(header);
 
-        JTextArea txtContent = new JTextArea(content);
-        txtContent.setEditable(false);
-        txtContent.setLineWrap(true);
-        txtContent.setWrapStyleWord(true);
-        txtContent.setOpaque(false);
-        txtContent.putClientProperty("FlatLaf.style", "font: 15; foreground: #E4E6EB");
-        card.add(txtContent);
+        // 🚀 Split content and image
+        JPanel contentPanel = new JPanel(new MigLayout("wrap 1, fillx, insets 0", "[fill]"));
+        contentPanel.setOpaque(false);
+
+        String textContent = content;
+        String imageBase64 = null;
+
+        if (content.contains("[IMG]")) {
+            int imgIndex = content.indexOf("[IMG]");
+            textContent = content.substring(0, imgIndex).trim();
+            imageBase64 = content.substring(imgIndex + 5);
+        }
+
+        // Draw Text
+        if (!textContent.isEmpty()) {
+            JTextArea txtContent = new JTextArea(textContent);
+            txtContent.setEditable(false);
+            txtContent.setLineWrap(true);
+            txtContent.setWrapStyleWord(true);
+            txtContent.setOpaque(false);
+            txtContent.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 15));
+            txtContent.putClientProperty("FlatLaf.style", "foreground: #E4E6EB");
+            contentPanel.add(txtContent);
+        }
+
+        // Draw Image
+        if (imageBase64 != null && !imageBase64.isEmpty()) {
+            try {
+                byte[] imgBytes = Base64.getDecoder().decode(imageBase64);
+                BufferedImage img = ImageIO.read(new ByteArrayInputStream(imgBytes));
+                JLabel imgLabel = new JLabel(new ImageIcon(img));
+                imgLabel.setBorder(BorderFactory.createLineBorder(Color.decode("#393A3B"), 1, true));
+                contentPanel.add(imgLabel, "align left, gaptop 10");
+            } catch (Exception e) {
+                JLabel errorLbl = new JLabel("[Broken Image Attachment]");
+                errorLbl.setForeground(Color.RED);
+                contentPanel.add(errorLbl);
+            }
+        }
+        
+        card.add(contentPanel);
 
         return card;
     }

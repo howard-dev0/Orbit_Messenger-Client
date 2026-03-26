@@ -1,14 +1,27 @@
 package com.orbit.gui;
 
+import com.orbit.security.CryptoUtil;
 import com.orbit.network.NetworkListener;
 import com.orbit.network.NetworkManager;
 import net.miginfocom.swing.MigLayout;
 
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Base64;
 
-// Notice we implement NetworkListener here!
 public class FriendlistPanel extends JPanel implements NetworkListener {
 
     // User Data
@@ -37,11 +50,8 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
         setBackground(MAIN_BG);
         initComponents();
         
-        // 1. Register this panel to listen for server messages
         NetworkManager.getInstance().addListener(this);
-        
-        // 2. Load dummy data (Will be replaced with actual server queries later)
-        
+        NetworkManager.getInstance().send("GET_SUGGESTED_USERS|" + currentUsername);
     }
 
     private void initComponents() {
@@ -69,7 +79,10 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
 
         allFriendsContainer = createListContainer();
         requestsContainer = createListContainer();
-        suggestionsContainer = createListContainer();
+        
+        // 🚀 THE FIX: Make Suggestions a 3-Column Grid Layout instead of a list!
+        suggestionsContainer = new JPanel(new MigLayout("wrap 3, fillx, gap 20, insets 20", "[fill, grow][fill, grow][fill, grow]", ""));
+        suggestionsContainer.setBackground(MAIN_BG);
         
         JPanel addFriendRoot = new JPanel(new BorderLayout());
         addFriendRoot.setBackground(MAIN_BG);
@@ -91,10 +104,36 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
     
     @Override
     public void onMessageReceived(String incomingMessage) {
+        // 🚀 SUGGESTED USERS HANDLER
+        if (incomingMessage.startsWith("SUGGESTED_USERS|")) {
+            String data = incomingMessage.length() > 16 ? incomingMessage.substring(16) : "";
+            SwingUtilities.invokeLater(() -> {
+                suggestionsContainer.removeAll(); 
+                
+                if (data.isEmpty()) {
+                    JLabel noResult = new JLabel("No new users to suggest right now!");
+                    noResult.setForeground(Color.GRAY);
+                    suggestionsContainer.add(noResult, "span 3, align center");
+                } else {
+                    String[] users = data.split("~");
+                    for (String u : users) {
+                        if (!u.isEmpty()) {
+                            String[] parts = u.split("\\^"); // [0]=username, [1]=fullname, [2]=avatar
+                            if (parts.length >= 3) {
+                                // Add to the 3-column grid
+                                suggestionsContainer.add(createSuggestedUserCard(parts[0], parts[1], parts[2]), "growx, growy");
+                            }
+                        }
+                    }
+                }
+                suggestionsContainer.revalidate();
+                suggestionsContainer.repaint();
+            });
+        }
         
         // 1. HANDLE SEARCH RESULTS
-        if (incomingMessage.startsWith("SEARCH_RESULTS|")) {
-            String data = incomingMessage.substring(15); 
+        else if (incomingMessage.startsWith("SEARCH_RESULTS|")) {
+            String data = incomingMessage.length() > 15 ? incomingMessage.substring(15) : ""; 
             SwingUtilities.invokeLater(() -> {
                 addFriendContainer.removeAll();
                 if (data.isEmpty()) {
@@ -129,7 +168,6 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
                     for (String u : users) {
                         if (!u.isEmpty()) {
                             String[] parts = u.split(":");
-                            // Draw the row with the "Confirm" and "Delete" buttons
                             requestsContainer.add(createUserRow(parts[1], "@" + parts[0], "REQUEST"), "growx");
                         }
                     }
@@ -153,7 +191,6 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
                     for (String u : users) {
                         if (!u.isEmpty()) {
                             String[] parts = u.split(":");
-                            // Draw the row with the "Message" and "Unfriend" buttons
                             allFriendsContainer.add(createUserRow(parts[1], "@" + parts[0], "FRIEND"), "growx");
                         }
                     }
@@ -215,7 +252,6 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
                 addFriendContainer.revalidate();
                 addFriendContainer.repaint();
 
-                // Send the command through the NetworkManager
                 NetworkManager.getInstance().send("SEARCH_USERS|" + query + "|" + currentUsername);
             }
         });
@@ -234,11 +270,13 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
         btn.addActionListener(e -> {
             cardLayout.show(centerCardPanel, cardName);
             
-            // 🚀 THE FIX: Ask the server for fresh data when the tab is clicked!
+            // 🚀 THE FIX: We must request fresh data based on the tab they clicked!
             if (cardName.equals("requests")) {
                 NetworkManager.getInstance().send("GET_FRIEND_REQUESTS|" + currentUsername);
             } else if (cardName.equals("all_friends")) {
                 NetworkManager.getInstance().send("GET_ALL_FRIENDS|" + currentUsername);
+            } else if (cardName.equals("suggestions")) {
+                NetworkManager.getInstance().send("GET_SUGGESTED_USERS|" + currentUsername); // Added this request!
             }
         });
         
@@ -246,7 +284,7 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
     }
 
     // ==============================================================
-    // DYNAMIC ROW GENERATOR
+    // DYNAMIC ROW & CARD GENERATORS
     // ==============================================================
     
     private JPanel createUserRow(String displayName, String username, String actionType) {
@@ -272,11 +310,11 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
             JButton btnConfirm = createActionButton("Confirm", true);
             JButton btnDelete = createActionButton("Delete", false);
             btnConfirm.addActionListener(e -> {
-                sendAction("RESPOND_FRIEND_REQUEST|" + username + "|ACCEPTED");
+                sendAction("RESPOND_FRIEND_REQUEST|" + username.replace("@","") + "|ACCEPTED");
                 row.setVisible(false);
             });
             btnDelete.addActionListener(e -> {
-                sendAction("RESPOND_FRIEND_REQUEST|" + username + "|DECLINED");
+                sendAction("RESPOND_FRIEND_REQUEST|" + username.replace("@","") + "|DECLINED");
                 row.setVisible(false);
             });
             row.add(btnConfirm);
@@ -286,7 +324,7 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
             JButton btnMessage = createActionButton("Message", true);
             JButton btnUnfriend = createActionButton("Unfriend", false);
             btnUnfriend.addActionListener(e -> {
-                sendAction("REMOVE_FRIEND|" + username);
+                sendAction("REMOVE_FRIEND|" + username.replace("@",""));
                 row.setVisible(false);
             });
             row.add(btnMessage);
@@ -295,12 +333,9 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
         else if ("ADD".equals(actionType)) {
             JButton btnAdd = createActionButton("Add Friend", true);
             btnAdd.addActionListener(e -> {
-                sendAction("SEND_FRIEND_REQUEST|" + username);
+                sendAction("SEND_FRIEND_REQUEST|" + username.replace("@",""));
                 btnAdd.setText("Request Sent");
                 btnAdd.setEnabled(false); 
-                
-                // THE FIX: Do not re-declare 'arc' or 'borderWidth' dynamically.
-                // Just change the colors safely using standard Java methods!
                 btnAdd.setBackground(Color.decode("#3A3B3C"));
                 btnAdd.setForeground(Color.decode("#B0B3B8"));
             });
@@ -308,6 +343,55 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
         }
 
         return row;
+    }
+    
+    // 🚀 THE FIX: Redesigned the card to look beautiful in a Grid Layout
+    private JPanel createSuggestedUserCard(String username, String fullName, String base64Avatar) {
+        JPanel card = new JPanel(new MigLayout("wrap 1, insets 15, align center", "[center]", "[]10[]2[]15[]"));
+        card.setBackground(Color.decode("#242526")); 
+        card.putClientProperty("FlatLaf.style", "arc: 15");
+
+        // 1. Avatar (Bigger for the grid)
+        JLabel avatar = new JLabel();
+        if (base64Avatar == null || base64Avatar.equals("default") || base64Avatar.isEmpty()) {
+            avatar.setText("👤");
+            avatar.putClientProperty("FlatLaf.style", "font: 400% $defaultFont; foreground: #B0B3B8");
+        } else {
+            try {
+                byte[] bytes = java.util.Base64.getDecoder().decode(base64Avatar);
+                java.awt.Image img = javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(bytes)).getScaledInstance(80, 80, java.awt.Image.SCALE_SMOOTH);
+                avatar.setIcon(new ImageIcon(img));
+            } catch (Exception e) {
+                avatar.setText("👤");
+                avatar.putClientProperty("FlatLaf.style", "font: 400% $defaultFont; foreground: #B0B3B8");
+            }
+        }
+        card.add(avatar);
+
+        // 2. Name & Username (Centered)
+        JLabel lblName = new JLabel(fullName);
+        lblName.putClientProperty("FlatLaf.style", "font: bold 16; foreground: #E4E6EB");
+        JLabel lblUser = new JLabel("@" + username);
+        lblUser.putClientProperty("FlatLaf.style", "font: 12; foreground: #B0B3B8");
+        
+        card.add(lblName);
+        card.add(lblUser);
+
+        // 3. Add Friend Button
+        JButton btnAdd = new JButton("Add Friend");
+        btnAdd.putClientProperty("FlatLaf.style", "background: #0084FF; foreground: #FFFFFF; arc: 10; font: bold 13; borderWidth: 0; margin: 8, 25, 8, 25");
+        btnAdd.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        btnAdd.addActionListener(e -> {
+            NetworkManager.getInstance().send("SEND_FRIEND_REQUEST|" + currentUsername + "|" + username);
+            btnAdd.setText("Sent ✓");
+            btnAdd.setEnabled(false);
+            btnAdd.setBackground(Color.decode("#3A3B3C"));
+        });
+        
+        card.add(btnAdd);
+
+        return card;
     }
 
     private JButton createActionButton(String text, boolean isPrimary) {
@@ -325,9 +409,4 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
     private void sendAction(String payload) {
         NetworkManager.getInstance().send(payload + "|" + currentUsername);
     }
-
-    // ==============================================================
-    // DUMMY DATA FOR TESTING
-    // ==============================================================
-    
 }
