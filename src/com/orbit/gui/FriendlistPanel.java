@@ -49,7 +49,7 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
         setLayout(new BorderLayout());
         setBackground(MAIN_BG);
         initComponents();
-        
+
         NetworkManager.getInstance().addListener(this);
         NetworkManager.getInstance().send("GET_SUGGESTED_USERS|" + currentUsername);
     }
@@ -79,11 +79,11 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
 
         allFriendsContainer = createListContainer();
         requestsContainer = createListContainer();
-        
-        // 🚀 THE FIX: Make Suggestions a 3-Column Grid Layout instead of a list!
+
+        // Make Suggestions a 3-Column Grid Layout instead of a list!
         suggestionsContainer = new JPanel(new MigLayout("wrap 3, fillx, gap 20, insets 20", "[fill, grow][fill, grow][fill, grow]", ""));
         suggestionsContainer.setBackground(MAIN_BG);
-        
+
         JPanel addFriendRoot = new JPanel(new BorderLayout());
         addFriendRoot.setBackground(MAIN_BG);
         addFriendContainer = createListContainer();
@@ -101,15 +101,14 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
     // ==============================================================
     // NETWORK INTERFACE IMPLEMENTATION
     // ==============================================================
-    
     @Override
     public void onMessageReceived(String incomingMessage) {
-        // 🚀 SUGGESTED USERS HANDLER
+        //  SUGGESTED USERS HANDLER
         if (incomingMessage.startsWith("SUGGESTED_USERS|")) {
             String data = incomingMessage.length() > 16 ? incomingMessage.substring(16) : "";
             SwingUtilities.invokeLater(() -> {
-                suggestionsContainer.removeAll(); 
-                
+                suggestionsContainer.removeAll();
+
                 if (data.isEmpty()) {
                     JLabel noResult = new JLabel("No new users to suggest right now!");
                     noResult.setForeground(Color.GRAY);
@@ -129,11 +128,9 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
                 suggestionsContainer.revalidate();
                 suggestionsContainer.repaint();
             });
-        }
-        
-        // 1. HANDLE SEARCH RESULTS
+        } // 1. HANDLE SEARCH RESULTS
         else if (incomingMessage.startsWith("SEARCH_RESULTS|")) {
-            String data = incomingMessage.length() > 15 ? incomingMessage.substring(15) : ""; 
+            String data = incomingMessage.length() > 15 ? incomingMessage.substring(15) : "";
             SwingUtilities.invokeLater(() -> {
                 addFriendContainer.removeAll();
                 if (data.isEmpty()) {
@@ -152,9 +149,7 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
                 addFriendContainer.revalidate();
                 addFriendContainer.repaint();
             });
-        }
-        
-        // 2. HANDLE PENDING FRIEND REQUESTS
+        } // 2. HANDLE PENDING FRIEND REQUESTS
         else if (incomingMessage.startsWith("FRIEND_REQUESTS|")) {
             String data = incomingMessage.length() > 16 ? incomingMessage.substring(16) : "";
             SwingUtilities.invokeLater(() -> {
@@ -175,9 +170,7 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
                 requestsContainer.revalidate();
                 requestsContainer.repaint();
             });
-        }
-        
-        // 3. HANDLE ALL ACCEPTED FRIENDS
+        } // 3. HANDLE ALL ACCEPTED FRIENDS
         else if (incomingMessage.startsWith("ALL_FRIENDS|")) {
             String data = incomingMessage.length() > 12 ? incomingMessage.substring(12) : "";
             SwingUtilities.invokeLater(() -> {
@@ -204,7 +197,6 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
     // ==============================================================
     // COMPONENT BUILDERS
     // ==============================================================
-
     private JPanel createListContainer() {
         JPanel panel = new JPanel(new MigLayout("wrap 1, fillx, insets 20", "[fill]", "[]10[]"));
         panel.setBackground(MAIN_BG);
@@ -214,34 +206,34 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
     private JPanel createHeaderWrapper(String title, JPanel listContainer) {
         JPanel wrapper = new JPanel(new BorderLayout());
         wrapper.setBackground(MAIN_BG);
-        
+
         JLabel lblHeader = new JLabel(title);
         lblHeader.putClientProperty("FlatLaf.style", "font: bold 20; foreground: #E4E6EB");
         lblHeader.setBorder(new EmptyBorder(20, 20, 10, 20));
-        
+
         wrapper.add(lblHeader, BorderLayout.NORTH);
-        
+
         JScrollPane scroll = new JScrollPane(listContainer);
         scroll.setBorder(null);
         scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         scroll.getVerticalScrollBar().setUnitIncrement(16);
         wrapper.add(scroll, BorderLayout.CENTER);
-        
+
         return wrapper;
     }
 
     private JPanel buildSearchBar() {
         JPanel searchPanel = new JPanel(new MigLayout("fillx, insets 20", "[fill]", "[]"));
         searchPanel.setBackground(MAIN_BG);
-        
+
         JTextField txtSearch = new JTextField();
         txtSearch.putClientProperty("JTextField.placeholderText", "Search by username or name...");
         txtSearch.putClientProperty("FlatLaf.style", "arc: 999; background: #3A3B3C; borderWidth: 0; font: 16");
         txtSearch.setBorder(new EmptyBorder(12, 20, 12, 20));
-        
+
         JButton btnSearch = new JButton("Search");
         btnSearch.putClientProperty("FlatLaf.style", "arc: 999; background: #0084FF; foreground: #FFFFFF; font: bold 14; borderWidth: 0");
-        
+
         btnSearch.addActionListener(e -> {
             String query = txtSearch.getText().trim();
             if (!query.isEmpty()) {
@@ -266,11 +258,11 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
         btn.setHorizontalAlignment(SwingConstants.LEFT);
         btn.putClientProperty("FlatLaf.style", "buttonType: borderless; font: bold 15; foreground: #E4E6EB; hoverBackground: #3A3B3C; arc: 10");
         btn.setBorder(new EmptyBorder(12, 15, 12, 15));
-        
+
         btn.addActionListener(e -> {
             cardLayout.show(centerCardPanel, cardName);
-            
-            // 🚀 THE FIX: We must request fresh data based on the tab they clicked!
+
+            // We must request fresh data based on the tab they clicked!
             if (cardName.equals("requests")) {
                 NetworkManager.getInstance().send("GET_FRIEND_REQUESTS|" + currentUsername);
             } else if (cardName.equals("all_friends")) {
@@ -279,14 +271,13 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
                 NetworkManager.getInstance().send("GET_SUGGESTED_USERS|" + currentUsername); // Added this request!
             }
         });
-        
+
         return btn;
     }
 
     // ==============================================================
     // DYNAMIC ROW & CARD GENERATORS
     // ==============================================================
-    
     private JPanel createUserRow(String displayName, String username, String actionType) {
         JPanel row = new JPanel(new MigLayout("insets 15, fillx", "[][grow][][]", ""));
         row.setBackground(SIDEBAR_BG);
@@ -310,32 +301,30 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
             JButton btnConfirm = createActionButton("Confirm", true);
             JButton btnDelete = createActionButton("Delete", false);
             btnConfirm.addActionListener(e -> {
-                sendAction("RESPOND_FRIEND_REQUEST|" + username.replace("@","") + "|ACCEPTED");
+                sendAction("RESPOND_FRIEND_REQUEST|" + username.replace("@", "") + "|ACCEPTED");
                 row.setVisible(false);
             });
             btnDelete.addActionListener(e -> {
-                sendAction("RESPOND_FRIEND_REQUEST|" + username.replace("@","") + "|DECLINED");
+                sendAction("RESPOND_FRIEND_REQUEST|" + username.replace("@", "") + "|DECLINED");
                 row.setVisible(false);
             });
             row.add(btnConfirm);
             row.add(btnDelete);
-        } 
-        else if ("FRIEND".equals(actionType)) {
+        } else if ("FRIEND".equals(actionType)) {
             JButton btnMessage = createActionButton("Message", true);
             JButton btnUnfriend = createActionButton("Unfriend", false);
             btnUnfriend.addActionListener(e -> {
-                sendAction("REMOVE_FRIEND|" + username.replace("@",""));
+                sendAction("REMOVE_FRIEND|" + username.replace("@", ""));
                 row.setVisible(false);
             });
             row.add(btnMessage);
             row.add(btnUnfriend);
-        } 
-        else if ("ADD".equals(actionType)) {
+        } else if ("ADD".equals(actionType)) {
             JButton btnAdd = createActionButton("Add Friend", true);
             btnAdd.addActionListener(e -> {
-                sendAction("SEND_FRIEND_REQUEST|" + username.replace("@",""));
+                sendAction("SEND_FRIEND_REQUEST|" + username.replace("@", ""));
                 btnAdd.setText("Request Sent");
-                btnAdd.setEnabled(false); 
+                btnAdd.setEnabled(false);
                 btnAdd.setBackground(Color.decode("#3A3B3C"));
                 btnAdd.setForeground(Color.decode("#B0B3B8"));
             });
@@ -344,14 +333,14 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
 
         return row;
     }
-    
-    // 🚀 THE FIX: Redesigned the card to look beautiful in a Grid Layout
+
+    // Redesigned the card to look beautiful in a Grid Layout
     private JPanel createSuggestedUserCard(String username, String fullName, String base64Avatar) {
         JPanel card = new JPanel(new MigLayout("wrap 1, insets 15, align center", "[center]", "[]10[]2[]15[]"));
         card.setBackground(Color.decode("#242526")); 
         card.putClientProperty("FlatLaf.style", "arc: 15");
 
-        // 1. Avatar (Bigger for the grid)
+        // 1. Avatar
         JLabel avatar = new JLabel();
         if (base64Avatar == null || base64Avatar.equals("default") || base64Avatar.isEmpty()) {
             avatar.setText("👤");
@@ -368,7 +357,7 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
         }
         card.add(avatar);
 
-        // 2. Name & Username (Centered)
+        // 2. Name & Username
         JLabel lblName = new JLabel(fullName);
         lblName.putClientProperty("FlatLaf.style", "font: bold 16; foreground: #E4E6EB");
         JLabel lblUser = new JLabel("@" + username);
@@ -383,7 +372,9 @@ public class FriendlistPanel extends JPanel implements NetworkListener {
         btnAdd.setCursor(new Cursor(Cursor.HAND_CURSOR));
         
         btnAdd.addActionListener(e -> {
-            NetworkManager.getInstance().send("SEND_FRIEND_REQUEST|" + currentUsername + "|" + username);
+            // 🚀 TARGET USERNAME first, then CURRENT USERNAME
+            NetworkManager.getInstance().send("SEND_FRIEND_REQUEST|" + username + "|" + currentUsername);
+            
             btnAdd.setText("Sent ✓");
             btnAdd.setEnabled(false);
             btnAdd.setBackground(Color.decode("#3A3B3C"));
