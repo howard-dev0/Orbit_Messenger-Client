@@ -15,7 +15,7 @@ public class NetworkManager {
     private BufferedReader in;
     private boolean isConnected = false;
     
-    private String serverIp = "192.168.100.3"; // Update this on presentation day!
+    private String serverIp = "127.0.0.1"; // Default to localhost for testing
     private int port = 8080;
 
     private final List<NetworkListener> listeners = new ArrayList<>();
@@ -32,14 +32,24 @@ public class NetworkManager {
     }
 
     public void connect(String myUsername) {
-        if (isConnected) return; 
+        if (isConnected) {
+            System.out.println("⚠️ NetworkManager: Already connected. Ignoring connect() call.");
+            return; 
+        }
+        
         try {
+            System.out.println("🔄 NetworkManager: Attempting to connect to " + serverIp + ":" + port + "...");
             socket = new Socket(serverIp, port);
             out = new PrintWriter(socket.getOutputStream(), true);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             isConnected = true;
+            
+            System.out.println("✅ NetworkManager: Connection established!");
 
-            if (myUsername != null) out.println("JOIN|" + myUsername);
+            if (myUsername != null && !myUsername.isEmpty()) {
+                System.out.println("📡 NetworkManager: Sending JOIN for " + myUsername);
+                out.println("JOIN|" + myUsername);
+            }
 
             new Thread(() -> {
                 try {
@@ -47,21 +57,29 @@ public class NetworkManager {
                     while ((incomingMessage = in.readLine()) != null) {
                         broadcastToListeners(incomingMessage);
                     }
+                    // If we reach this line, the Server cleanly closed the connection (EOF)
+                    System.err.println("❌ NetworkManager: Server closed the connection (End of Stream).");
                 } catch (Exception e) {
-                    System.err.println("Lost connection to server.");
+                    // If we reach this line, the connection was violently broken (Server crash or network drop)
+                    System.err.println("❌ NetworkManager: Connection lost violently!");
+                    e.printStackTrace();
+                } finally {
                     isConnected = false;
+                    System.out.println("🔌 NetworkManager: Socket closed and marked as disconnected.");
                 }
             }).start();
         } catch (Exception e) {
-            System.err.println("Could not connect to Orbit Server at " + serverIp);
+            System.err.println("❌ NetworkManager: Could not connect to Orbit Server at " + serverIp);
+            e.printStackTrace();
         }
     }
 
     public void send(String payload) {
         if (out != null && isConnected) {
+            System.out.println("📤 NetworkManager Sending: " + payload);
             out.println(payload);
         } else {
-            System.err.println("Tried to send message, but not connected! Payload: " + payload);
+            System.err.println("⛔ Tried to send message, but NOT CONNECTED! Payload: " + payload);
         }
     }
 

@@ -411,38 +411,40 @@ public class MessagesPanel extends JPanel implements NetworkListener {
                 chatHistoryContainer.repaint();
             });
         } else if (incomingMessage.startsWith("UPDATE_STATUS|")) {
-        String[] parts = incomingMessage.split("\\|");
-        if (parts.length < 3) return;
-
-        String targetUser = parts[1];
-        String newStatus = parts[2]; // "ONLINE" or "OFFLINE"
-
-        SwingUtilities.invokeLater(() -> {
-            // Loop through the sidebar list to find the friend who changed status
-            for (int i = 0; i < chatListModel.size(); i++) {
-                ChatListItem item = chatListModel.getElementAt(i);
-                
-                // We check if the ID matches the friend's username
-                if (item.id.equals(targetUser)) {
-                    // 1. Update the underlying data for the left sidebar subtext
-                    item.lastTime = newStatus.equals("ONLINE") ? "Active Now" : "Offline";
-
-                    // 2. If we are currently looking at THIS user's profile on the right...
-                    if (activeChatId != null && activeChatId.equals(targetUser)) {
-                        // ...Update the Right Info Panel status label immediately
-                        lblInfoStatus.setText(item.lastTime);
-                        
-                        // Optional: Update the "Active now" text under the center header name
-                        // nameStack.getComponent(1).setText(item.lastTime);
-                    }
-
-                    // 3. Refresh the UI so the changes appear on screen
-                    chatList.repaint();
-                    break; // Exit the loop since we found our target
-                }
+            String[] parts = incomingMessage.split("\\|");
+            if (parts.length < 3) {
+                return;
             }
-        });
-    }
+
+            String targetUser = parts[1];
+            String newStatus = parts[2]; // "ONLINE" or "OFFLINE"
+
+            SwingUtilities.invokeLater(() -> {
+                // Loop through the sidebar list to find the friend who changed status
+                for (int i = 0; i < chatListModel.size(); i++) {
+                    ChatListItem item = chatListModel.getElementAt(i);
+
+                    // We check if the ID matches the friend's username
+                    if (item.id.equals(targetUser)) {
+                        // 1. Update the underlying data for the left sidebar subtext
+                        item.lastTime = newStatus.equals("ONLINE") ? "Active Now" : "Offline";
+
+                        // 2. If we are currently looking at THIS user's profile on the right...
+                        if (activeChatId != null && activeChatId.equals(targetUser)) {
+                            // ...Update the Right Info Panel status label immediately
+                            lblInfoStatus.setText(item.lastTime);
+
+                            // Optional: Update the "Active now" text under the center header name
+                            // nameStack.getComponent(1).setText(item.lastTime);
+                        }
+
+                        // 3. Refresh the UI so the changes appear on screen
+                        chatList.repaint();
+                        break; // Exit the loop since we found our target
+                    }
+                }
+            });
+        }
 
     }
 
@@ -516,13 +518,28 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         lblInfoStatus.putClientProperty("FlatLaf.style", "font: 12; foreground: #B0B3B8");
         p.add(lblInfoStatus);
 
-        JPanel actionRow = new JPanel(new MigLayout("insets 0, gap 20", "[][][]", ""));
+JPanel actionRow = new JPanel(new MigLayout("insets 0, gap 20", "[][][]", ""));
         actionRow.setBackground(SIDEBAR_BG);
-        actionRow.add(createActionCircle("👤", "Profile"));
-        actionRow.add(createActionCircle("🔕", "Mute"));
-        actionRow.add(createActionCircle("🔍", "Search"));
-        p.add(actionRow);
 
+        // 1. Profile Button (Uses the lambda action)
+        actionRow.add(createActionCircle("👤", "Profile", e -> {
+            if (activeChatId != null) {
+                Component topLevel = SwingUtilities.getAncestorOfClass(JFrame.class, this);
+                if (topLevel instanceof ChatUI) {
+                    ChatUI ui = (ChatUI) topLevel;
+                    ui.getProfilePanel().loadUserProfile(activeChatId);
+                    ui.showCard("profile_card");
+                }
+            }
+        }));
+
+        // 2. Mute Button (Passes 'null' for now since we haven't built Mute logic)
+        actionRow.add(createActionCircle("🔕", "Mute", null));
+
+        // 3. Search Button (Passes 'null')
+        actionRow.add(createActionCircle("🔍", "Search", null));
+
+        p.add(actionRow);
         JPanel sections = new JPanel(new MigLayout("wrap 1, fillx, insets 0", "[fill]", "[]0[]"));
         sections.setBackground(SIDEBAR_BG);
         sections.add(createCategoryHeader("Privacy & support"));
@@ -566,15 +583,25 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         return btn;
     }
 
-    private JPanel createActionCircle(String icon, String labelText) {
+private JPanel createActionCircle(String icon, String labelText, java.awt.event.ActionListener action) {
         JPanel p = new JPanel(new MigLayout("wrap 1, insets 0, align center", "[center]", "[]5[]"));
         p.setOpaque(false);
+        
         JButton btn = new JButton(icon);
+        // Styling the circle button
         btn.putClientProperty("FlatLaf.style", "arc: 999; background: #3A3B3C; foreground: #E4E6EB; margin: 12,14,12,14; font: 150% $defaultFont; borderWidth: 0");
+        
+        // 🚀 THE FIX: Attach the action to the button!
+        if (action != null) {
+            btn.addActionListener(action);
+        }
+        
         p.add(btn);
+        
         JLabel lbl = new JLabel(labelText);
         lbl.putClientProperty("FlatLaf.style", "font: 12; foreground: #E4E6EB");
         p.add(lbl);
+        
         return p;
     }
 

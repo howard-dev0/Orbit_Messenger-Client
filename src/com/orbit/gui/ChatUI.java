@@ -1,5 +1,6 @@
 package com.orbit.gui;
 
+import com.orbit.network.NetworkManager;
 import java.awt.*;
 import javax.swing.*;
 
@@ -13,19 +14,23 @@ public class ChatUI extends JFrame {
 
     private final Color MAIN_BG = Color.decode("#18191A");
     private final Color SIDEBAR_BG = Color.decode("#242526");
-
-    public ChatUI(String username, String displayName) {
+    private ProfilePanel profilePanel;
+    
+    
+public ChatUI(String username, String displayName) {
         this.currentUsername = username;
         this.currentDisplayName = displayName;
 
         applyOrbitStyles();
         setupFrame();
-        initComponents();
 
-        // 🚀 THE FIX: Start the central network engine!
+        // 🚀 THE FIX: Turn on the internet FIRST!
         // Make sure this IP matches your XAMPP PC's IPv4 address
         com.orbit.network.NetworkManager.getInstance().setServerAddress("192.168.100.32");
         com.orbit.network.NetworkManager.getInstance().connect(currentUsername);
+
+        // NOW build the panels (so they can successfully talk to the server)
+        initComponents();
 
         System.out.println("Orbit ChatUI Initialized: " + displayName);
     }
@@ -40,9 +45,15 @@ public class ChatUI extends JFrame {
         getContentPane().setBackground(MAIN_BG);
     }
 
+    public ProfilePanel getProfilePanel() {
+    return this.profilePanel;
+}
+    
     private void initComponents() {
         setLayout(new BorderLayout());
 
+        profilePanel = new ProfilePanel(currentUsername, currentDisplayName);
+        
         // TOP NAVIGATION BAR
         JPanel topNavBar = new JPanel(new FlowLayout(FlowLayout.CENTER, 40, 8));
         topNavBar.setBackground(SIDEBAR_BG);
@@ -72,6 +83,7 @@ public class ChatUI extends JFrame {
         mainCardPanel.add(buildPlaceholderPanel("Settings"), "settings_card");
 
         add(mainCardPanel, BorderLayout.CENTER);
+      
     }
 
     private JButton createNavButton(String iconText, String cardName, String tooltip) {
@@ -81,7 +93,7 @@ public class ChatUI extends JFrame {
         btn.addActionListener(e -> cardLayout.show(mainCardPanel, cardName));
         return btn;
     }
-
+    
     private void applyOrbitStyles() {
         UIManager.put("SplitPane.dividerSize", 0);
         UIManager.put("ScrollPane.border", BorderFactory.createEmptyBorder());
@@ -89,6 +101,15 @@ public class ChatUI extends JFrame {
         UIManager.put("ScrollBar.width", 8);
         UIManager.put("ScrollBar.thumbArc", 999);
         UIManager.put("ScrollBar.thumb", Color.decode("#555555"));
+    }
+    
+    public void showCard(String cardName) {
+        // Ensure cardLayout and mainCardPanel are class-level variables!
+        if (cardLayout != null && mainCardPanel != null) {
+            cardLayout.show(mainCardPanel, cardName);
+        } else {
+            System.err.println("Error: CardLayout or MainPanel not initialized in ChatUI.");
+        }
     }
 
     private JPanel buildPlaceholderPanel(String text) {
