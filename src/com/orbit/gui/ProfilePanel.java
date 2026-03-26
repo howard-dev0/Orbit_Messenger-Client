@@ -178,10 +178,11 @@ public class ProfilePanel extends JPanel implements NetworkListener {
     public void onMessageReceived(String incomingMessage) {
         if (incomingMessage.startsWith("PROFILE_DATA|")) {
             String[] parts = incomingMessage.split("\\|", -1);
-            
             if (parts.length < 7) return; 
             
             SwingUtilities.invokeLater(() -> {
+                String profileUsername = parts[1]; // The username of the profile we are viewing
+                
                 lblName.setText(parts[2]);
                 lblUser.setText("@" + parts[1]);
                 lblPostCount.setText(parts[3] + " Posts");
@@ -200,8 +201,9 @@ public class ProfilePanel extends JPanel implements NetworkListener {
                     for (String p : allPosts) {
                         if (!p.isEmpty()) {
                             String[] postParts = p.split("\\^");
-                            if (postParts.length >= 2) {
-                                feedContainer.add(createPostCard(parts[2], postParts[1], postParts[0], 0, 0), "growx");
+                            // 🚀 UPGRADED: Expecting [0]=ID, [1]=Content, [2]=Time
+                            if (postParts.length >= 3) {
+                                feedContainer.add(createPostCard(postParts[0], profileUsername, parts[2], postParts[1], postParts[2], 0, 0), "growx, gaptop 15");
                             }
                         }
                     }
@@ -260,7 +262,8 @@ public class ProfilePanel extends JPanel implements NetworkListener {
         dialog.setVisible(true);
     }
 
-    private JPanel createPostCard(String authorName, String timeAgo, String content, int likes, int comments) {
+    // 🚀 UPGRADED: Delete functionality added here too!
+    private JPanel createPostCard(String postId, String authorUsername, String authorFullName, String content, String timeAgo, int likes, int comments) {
         JPanel card = new JPanel(new MigLayout("wrap 1, fillx, insets 15", "[fill]", "[]15[]15[]"));
         card.setBackground(CARD_BG);
         card.putClientProperty("FlatLaf.style", "arc: 15");
@@ -274,7 +277,7 @@ public class ProfilePanel extends JPanel implements NetworkListener {
         
         JPanel nameStack = new JPanel(new MigLayout("wrap 1, insets 0, gap 0"));
         nameStack.setOpaque(false);
-        JLabel lblAuthor = new JLabel(authorName);
+        JLabel lblAuthor = new JLabel(authorFullName);
         lblAuthor.putClientProperty("FlatLaf.style", "font: bold 15; foreground: #E4E6EB");
         JLabel lblTime = new JLabel(timeAgo);
         lblTime.putClientProperty("FlatLaf.style", "font: 12; foreground: #B0B3B8");
@@ -282,9 +285,38 @@ public class ProfilePanel extends JPanel implements NetworkListener {
         nameStack.add(lblTime);
         header.add(nameStack, "growx");
         
+        JButton btnMore = new JButton("•••");
+        btnMore.putClientProperty("FlatLaf.style", "buttonType: borderless; foreground: #B0B3B8; font: 16");
+        
+        // 🚀 THE MAGIC: The Delete Menu
+        if (authorUsername.equals(currentUsername)) {
+            JPopupMenu moreMenu = new JPopupMenu();
+            moreMenu.setBackground(CARD_BG);
+            moreMenu.setBorder(BorderFactory.createLineBorder(Color.decode("#393A3B")));
+            
+            JMenuItem deleteItem = new JMenuItem("🗑️ Delete Post");
+            deleteItem.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
+            deleteItem.setForeground(Color.decode("#E0245E")); // Red color
+            deleteItem.setBackground(CARD_BG);
+            deleteItem.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            
+            deleteItem.addActionListener(e -> {
+                int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this post?", "Delete Post", JOptionPane.YES_NO_OPTION);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    NetworkManager.getInstance().send("DELETE_POST|" + currentUsername + "|" + postId);
+                    // Reload profile to refresh the feed
+                    loadUserProfile(currentUsername); 
+                }
+            });
+            moreMenu.add(deleteItem);
+            btnMore.addActionListener(e -> moreMenu.show(btnMore, 0, btnMore.getHeight()));
+        } else {
+            btnMore.addActionListener(e -> JOptionPane.showMessageDialog(this, "More options coming soon."));
+        }
+        
+        header.add(btnMore);
         card.add(header);
 
-        // 🚀 Split content and image
         JPanel contentPanel = new JPanel(new MigLayout("wrap 1, fillx, insets 0", "[fill]"));
         contentPanel.setOpaque(false);
 
@@ -297,11 +329,9 @@ public class ProfilePanel extends JPanel implements NetworkListener {
             imageBase64 = content.substring(imgIndex + 5);
         }
 
-        // 🚀 THE FIX: Restore the <br> tags back to actual Newlines (\n) for the UI!
         textContent = textContent.replace("<br>", "\n");
 
-        // Draw Text
-        if (!textContent.isEmpty()) {
+        if (!textContent.isEmpty() && !textContent.equals("null")) {
             JTextArea txtContent = new JTextArea(textContent);
             txtContent.setEditable(false);
             txtContent.setLineWrap(true);
@@ -312,7 +342,6 @@ public class ProfilePanel extends JPanel implements NetworkListener {
             contentPanel.add(txtContent);
         }
 
-        // Draw Image
         if (imageBase64 != null && !imageBase64.isEmpty()) {
             try {
                 byte[] imgBytes = Base64.getDecoder().decode(imageBase64);
@@ -329,7 +358,6 @@ public class ProfilePanel extends JPanel implements NetworkListener {
         
         card.add(contentPanel);
 
-        // 🚀 ADDED: The separator and Action Buttons (Like, Comment, Share) 
         JSeparator sep = new JSeparator();
         sep.setForeground(Color.decode("#393A3B"));
         card.add(sep, "growx, gaptop 5, gapbottom 5");

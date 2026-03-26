@@ -104,13 +104,9 @@ public class HomePanel extends JPanel implements NetworkListener {
             String content = txtPost.getText().trim();
             content = content.replace("\n", "<br>");
             
-            if (content.isEmpty()) {
-                content = "null";
-            }
-            
+            if (content.isEmpty()) content = "null";
             String imgData = attachedImageBase64 != null ? attachedImageBase64 : "null";
 
-            // 🚀 NEW LOGIC: Sends text and image separately to match DB Schema!
             if (!content.equals("null") || !imgData.equals("null")) {
                 NetworkManager.getInstance().send("CREATE_POST|" + currentUsername + "|" + content + "|" + imgData);
                 
@@ -212,7 +208,8 @@ public class HomePanel extends JPanel implements NetworkListener {
         return btn;
     }
 
-    private JPanel createPostCard(String authorName, String content, String timeAgo, int likes, int comments) {
+    // 🚀 UPGRADED: Added postId and authorUsername parameters
+    private JPanel createPostCard(String postId, String authorUsername, String authorFullName, String content, String timeAgo, int likes, int comments) {
         JPanel card = new JPanel(new MigLayout("wrap 1, fillx, insets 15", "[fill]", "[]15[]15[]"));
         card.setBackground(CARD_BG);
         card.putClientProperty("FlatLaf.style", "arc: 15");
@@ -226,7 +223,7 @@ public class HomePanel extends JPanel implements NetworkListener {
 
         JPanel nameStack = new JPanel(new MigLayout("wrap 1, insets 0, gap 0"));
         nameStack.setOpaque(false);
-        JLabel lblAuthor = new JLabel(authorName);
+        JLabel lblAuthor = new JLabel(authorFullName);
         lblAuthor.putClientProperty("FlatLaf.style", "font: bold 15; foreground: #E4E6EB");
         JLabel lblTime = new JLabel(timeAgo);
         lblTime.putClientProperty("FlatLaf.style", "font: 12; foreground: #B0B3B8");
@@ -237,8 +234,34 @@ public class HomePanel extends JPanel implements NetworkListener {
 
         JButton btnMore = new JButton("•••");
         btnMore.putClientProperty("FlatLaf.style", "buttonType: borderless; foreground: #B0B3B8; font: 16");
+        
+        // 🚀 THE MAGIC: The Delete Menu
+        if (authorUsername.equals(currentUsername)) {
+            JPopupMenu moreMenu = new JPopupMenu();
+            moreMenu.setBackground(CARD_BG);
+            moreMenu.setBorder(BorderFactory.createLineBorder(Color.decode("#393A3B")));
+            
+            JMenuItem deleteItem = new JMenuItem("🗑️ Delete Post");
+            deleteItem.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
+            deleteItem.setForeground(Color.decode("#E0245E")); // Red color for delete
+            deleteItem.setBackground(CARD_BG);
+            deleteItem.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            
+            deleteItem.addActionListener(e -> {
+                int confirm = JOptionPane.showConfirmDialog(this, "Are you sure you want to delete this post?", "Delete Post", JOptionPane.YES_NO_OPTION);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    NetworkManager.getInstance().send("DELETE_POST|" + currentUsername + "|" + postId);
+                    refreshFeed();
+                }
+            });
+            moreMenu.add(deleteItem);
+            btnMore.addActionListener(e -> moreMenu.show(btnMore, 0, btnMore.getHeight()));
+        } else {
+            // It's a friend's post
+            btnMore.addActionListener(e -> JOptionPane.showMessageDialog(this, "More options coming soon."));
+        }
+        
         header.add(btnMore);
-
         card.add(header);
 
         JPanel contentPanel = new JPanel(new MigLayout("wrap 1, fillx, insets 0", "[fill]"));
@@ -255,7 +278,7 @@ public class HomePanel extends JPanel implements NetworkListener {
 
         textContent = textContent.replace("<br>", "\n");
 
-        if (!textContent.isEmpty()) {
+        if (!textContent.isEmpty() && !textContent.equals("null")) {
             JTextArea txtContent = new JTextArea(textContent);
             txtContent.setEditable(false);
             txtContent.setLineWrap(true);
@@ -322,8 +345,9 @@ public class HomePanel extends JPanel implements NetworkListener {
                     for (String p : posts) {
                         if (!p.isEmpty()) {
                             String[] parts = p.split("\\|");
-                            if (parts.length >= 5) {
-                                feedContainer.add(createPostCard(parts[0], parts[1], parts[2], Integer.parseInt(parts[3]), Integer.parseInt(parts[4])), "growx, gaptop 15");
+                            // 🚀 UPGRADED: Catches 7 parts now -> ID | Username | Author | Content | Time | Likes | Comments
+                            if (parts.length >= 7) {
+                                feedContainer.add(createPostCard(parts[0], parts[1], parts[2], parts[3], parts[4], Integer.parseInt(parts[5]), Integer.parseInt(parts[6])), "growx, gaptop 15");
                             }
                         }
                     }
