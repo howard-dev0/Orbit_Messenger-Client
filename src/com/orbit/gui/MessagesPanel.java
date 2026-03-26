@@ -18,23 +18,31 @@ import java.util.List;
 public class MessagesPanel extends JPanel implements NetworkListener {
 
     private final String ROOM_SECRET_KEY = "OrbitCapstone2026!";
-    
+
     private class ChatListItem {
+
         String id, displayName, type, lastTime;
+
         public ChatListItem(String id, String displayName, String type, String lastTime) {
-            this.id = id; this.displayName = displayName; this.type = type; this.lastTime = lastTime;
+            this.id = id;
+            this.displayName = displayName;
+            this.type = type;
+            this.lastTime = lastTime;
         }
+
         @Override
-        public String toString() { return displayName; } 
+        public String toString() {
+            return displayName;
+        }
     }
 
     private DefaultListModel<ChatListItem> chatListModel;
     private JList<ChatListItem> chatList;
-    private List<ChatListItem> masterChatList = new ArrayList<>(); 
+    private List<ChatListItem> masterChatList = new ArrayList<>();
 
     private String currentUsername;
     private String currentDisplayName;
-    private String activeChatId = null; 
+    private String activeChatId = null;
     private String activeChatType = "DM";
 
     private JPanel chatHistoryContainer;
@@ -42,7 +50,7 @@ public class MessagesPanel extends JPanel implements NetworkListener {
     private CardLayout infoCardLayout;
     private JSplitPane rightSplitPane;
     private boolean isInfoPanelVisible = true;
-    private JLabel lblChatName; 
+    private JLabel lblChatName;
 
     private java.util.HashMap<String, String> chatTypeMap = new java.util.HashMap<>();
     private java.util.HashMap<String, String> chatIdMap = new java.util.HashMap<>();
@@ -58,10 +66,10 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         setLayout(new BorderLayout());
         setBackground(MAIN_BG);
         initComponents();
-        
+
         NetworkManager.getInstance().addListener(this);
         NetworkManager.getInstance().send("GET_MY_CHATS|" + currentUsername);
-        
+
         // 🚀 UPDATED: Time format to 12:30 PM
         appendMessageBubble("System", "Welcome to Orbit! Select a chat to begin.", new SimpleDateFormat("h:mm a").format(new Date()), false);
     }
@@ -87,20 +95,31 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         txtSearch.putClientProperty("JTextField.placeholderText", "🔍 Search Messenger");
         txtSearch.putClientProperty("FlatLaf.style", "arc: 999; background: #3A3B3C; borderWidth: 0; margin: 0,10,10,10");
         txtSearch.setBorder(new EmptyBorder(8, 15, 8, 15));
-        
+
         txtSearch.getDocument().addDocumentListener(new DocumentListener() {
-            public void insertUpdate(DocumentEvent e) { filterChats(); }
-            public void removeUpdate(DocumentEvent e) { filterChats(); }
-            public void changedUpdate(DocumentEvent e) { filterChats(); }
+            public void insertUpdate(DocumentEvent e) {
+                filterChats();
+            }
+
+            public void removeUpdate(DocumentEvent e) {
+                filterChats();
+            }
+
+            public void changedUpdate(DocumentEvent e) {
+                filterChats();
+            }
+
             private void filterChats() {
                 String query = txtSearch.getText().toLowerCase();
                 chatListModel.clear();
                 for (ChatListItem item : masterChatList) {
-                    if (item.displayName.toLowerCase().contains(query)) chatListModel.addElement(item);
+                    if (item.displayName.toLowerCase().contains(query)) {
+                        chatListModel.addElement(item);
+                    }
                 }
             }
         });
-        
+
         leftHeaderWrapper.add(txtSearch, BorderLayout.SOUTH);
         leftPanel.add(leftHeaderWrapper, BorderLayout.NORTH);
 
@@ -115,13 +134,18 @@ public class MessagesPanel extends JPanel implements NetworkListener {
                 ChatListItem selectedItem = chatList.getSelectedValue();
                 activeChatId = selectedItem.id;
                 activeChatType = selectedItem.type;
-                if (lblChatName != null) lblChatName.setText(selectedItem.displayName + " 🔒");
+                if (lblChatName != null) {
+                    lblChatName.setText(selectedItem.displayName + " 🔒");
+                }
                 chatHistoryContainer.removeAll();
                 chatHistoryContainer.revalidate();
                 chatHistoryContainer.repaint();
                 NetworkManager.getInstance().send("LOAD_CHAT_HISTORY|" + activeChatId + "|" + currentUsername);
-                if ("GROUP".equals(activeChatType)) infoCardLayout.show(rightInfoPanel, "GROUP_INFO");
-                else infoCardLayout.show(rightInfoPanel, "DM_INFO");
+                if ("GROUP".equals(activeChatType)) {
+                    infoCardLayout.show(rightInfoPanel, "GROUP_INFO");
+                } else {
+                    infoCardLayout.show(rightInfoPanel, "DM_INFO");
+                }
             }
         });
 
@@ -144,10 +168,10 @@ public class MessagesPanel extends JPanel implements NetworkListener {
 
         JPanel nameStack = new JPanel(new MigLayout("wrap 1, insets 0, gap 0"));
         nameStack.setBackground(MAIN_BG);
-        lblChatName = new JLabel("Select a chat..."); 
+        lblChatName = new JLabel("Select a chat...");
         lblChatName.putClientProperty("FlatLaf.style", "font: bold 16; foreground: #E4E6EB");
         JLabel lblActive = new JLabel("E2E Encrypted Session");
-        lblActive.putClientProperty("FlatLaf.style", "font: 11; foreground: #0084FF"); 
+        lblActive.putClientProperty("FlatLaf.style", "font: 11; foreground: #0084FF");
         nameStack.add(lblChatName);
         nameStack.add(lblActive);
 
@@ -232,15 +256,23 @@ public class MessagesPanel extends JPanel implements NetworkListener {
     }
 
     private class ChatListCellRenderer extends JPanel implements ListCellRenderer<ChatListItem> {
+
         private JLabel lblAvatar, lblName, lblTime;
+
         public ChatListCellRenderer() {
             setLayout(new MigLayout("insets 5 15 5 15, fillx", "[][grow][]", "[]"));
             setOpaque(true);
-            lblAvatar = new JLabel("👤"); lblAvatar.putClientProperty("FlatLaf.style", "font: 250% $defaultFont; foreground: #B0B3B8");
-            lblName = new JLabel(); lblName.putClientProperty("FlatLaf.style", "font: bold 14; foreground: #E4E6EB");
-            lblTime = new JLabel(); lblTime.putClientProperty("FlatLaf.style", "font: 11; foreground: #B0B3B8");
-            add(lblAvatar, "gapright 10"); add(lblName, "growx"); add(lblTime);
+            lblAvatar = new JLabel("👤");
+            lblAvatar.putClientProperty("FlatLaf.style", "font: 250% $defaultFont; foreground: #B0B3B8");
+            lblName = new JLabel();
+            lblName.putClientProperty("FlatLaf.style", "font: bold 14; foreground: #E4E6EB");
+            lblTime = new JLabel();
+            lblTime.putClientProperty("FlatLaf.style", "font: 11; foreground: #B0B3B8");
+            add(lblAvatar, "gapright 10");
+            add(lblName, "growx");
+            add(lblTime);
         }
+
         @Override
         public Component getListCellRendererComponent(JList<? extends ChatListItem> list, ChatListItem value, int index, boolean isSelected, boolean cellHasFocus) {
             if (value != null) {
@@ -250,36 +282,38 @@ public class MessagesPanel extends JPanel implements NetworkListener {
                 lblAvatar.setText("GROUP".equals(value.type) ? "👥" : "👤");
                 lblTime.setText(value.lastTime);
             }
-            setBackground(isSelected ? Color.decode("#3A3B3C") : Color.decode("#242526")); 
+            setBackground(isSelected ? Color.decode("#3A3B3C") : Color.decode("#242526"));
             lblName.setForeground(isSelected ? Color.WHITE : Color.decode("#E4E6EB"));
             return this;
         }
     }
 
     private String getDynamicRoomKey(String targetId) {
-    String base;
-    
-    if (activeChatType.equals("GROUP")) {
-        // Groups use the Group ID as the key base
-        base = "OrbitGroup_" + targetId;
-    } else {
-        // DMs: Sort usernames alphabetically so both users generate the EXACT same key
-        // Example: "howard" and "angely" both become "angely_howard"
-        String user1 = currentUsername.toLowerCase();
-        String user2 = targetId.toLowerCase();
-        
-        if (user1.compareTo(user2) < 0) {
-            base = user1 + "_" + user2;
-        } else {
-            base = user2 + "_" + user1;
-        }
-    }
+        String base;
 
-    // Hash it slightly to make it 16 bytes for AES
-    String baseSecret = "Orbit_" + base + "_2026";
-    if (baseSecret.length() > 16) return baseSecret.substring(0, 16);
-    return String.format("%-16s", baseSecret).replace(' ', 'X');
-}
+        if (activeChatType.equals("GROUP")) {
+            // Groups use the Group ID as the key base
+            base = "OrbitGroup_" + targetId;
+        } else {
+            // DMs: Sort usernames alphabetically so both users generate the EXACT same key
+            // Example: "howard" and "angely" both become "angely_howard"
+            String user1 = currentUsername.toLowerCase();
+            String user2 = targetId.toLowerCase();
+
+            if (user1.compareTo(user2) < 0) {
+                base = user1 + "_" + user2;
+            } else {
+                base = user2 + "_" + user1;
+            }
+        }
+
+        // Hash it slightly to make it 16 bytes for AES
+        String baseSecret = "Orbit_" + base + "_2026";
+        if (baseSecret.length() > 16) {
+            return baseSecret.substring(0, 16);
+        }
+        return String.format("%-16s", baseSecret).replace(' ', 'X');
+    }
 
     @Override
     public void onMessageReceived(String incomingMessage) {
@@ -288,61 +322,68 @@ public class MessagesPanel extends JPanel implements NetworkListener {
             String data = incomingMessage.substring(9);
             String[] chats = data.split(",");
             SwingUtilities.invokeLater(() -> {
-                chatListModel.clear(); masterChatList.clear();
+                chatListModel.clear(); 
+                masterChatList.clear();
                 for (String c : chats) {
                     if (!c.isEmpty()) {
                         String[] parts = c.split("~");
-                        if (parts.length >= 3) {
-                            String name = (parts[1] == null || parts[1].equalsIgnoreCase("null")) ? parts[0] : parts[1];
-                            ChatListItem item = new ChatListItem(parts[0], name, parts[2], "Online");
-                            masterChatList.add(item); chatListModel.addElement(item);
+                        if (parts.length >= 4) { // Now expecting 4 parts: ID, Name, Type, Status
+                            String id = parts[0];
+                            String name = parts[1];
+                            String type = parts[2];
+                            String status = parts[3]; // "Active Now" or "Offline"
+                            
+                            ChatListItem item = new ChatListItem(id, name, type, status);
+                            masterChatList.add(item);
+                            chatListModel.addElement(item);
                         }
                     }
                 }
             });
-        }
-        
-        // 2. RECEIVE LIVE MESSAGE
+        } // 2. RECEIVE LIVE MESSAGE
         else if (incomingMessage.startsWith("NEW_MESSAGE|")) {
-    String[] parts = incomingMessage.split("\\|");
-    if (parts.length < 5) return;
-    
-    String incomingChatId = parts[1]; // This is the sender's username
-    String senderName = parts[2];
-    String encryptedText = parts[3];
-    String time = parts[4]; 
+            String[] parts = incomingMessage.split("\\|");
+            if (parts.length < 5) {
+                return;
+            }
 
-    // Use our new sorted key logic to decrypt
-    if (incomingChatId.equals(activeChatId)) {
-        String dynamicKey = getDynamicRoomKey(incomingChatId);
-        String decryptedText = CryptoUtil.decrypt(encryptedText, dynamicKey);
-        
-        // Final protection against decryption failure
-        if (decryptedText == null) decryptedText = "[Secure Message]";
+            String incomingChatId = parts[1]; // This is the sender's username
+            String senderName = parts[2];
+            String encryptedText = parts[3];
+            String time = parts[4];
 
-        appendMessageBubble(senderName, decryptedText, time, false);
-        scrollToBottom();
-    }
-}
-        
+            // Use our new sorted key logic to decrypt
+            if (incomingChatId.equals(activeChatId)) {
+                String dynamicKey = getDynamicRoomKey(incomingChatId);
+                String decryptedText = CryptoUtil.decrypt(encryptedText, dynamicKey);
 
-        // 3. RECEIVE HISTORY
+                // Final protection against decryption failure
+                if (decryptedText == null) {
+                    decryptedText = "[Secure Message]";
+                }
+
+                appendMessageBubble(senderName, decryptedText, time, false);
+                scrollToBottom();
+            }
+        } // 3. RECEIVE HISTORY
         else if (incomingMessage.startsWith("CHAT_HISTORY|")) {
             String data = incomingMessage.length() > 13 ? incomingMessage.substring(13) : "";
             SwingUtilities.invokeLater(() -> {
-                chatHistoryContainer.removeAll(); 
+                chatHistoryContainer.removeAll();
                 if (!data.isEmpty()) {
                     String[] messages = data.split(",");
-                    String dynamicKey = getDynamicRoomKey(activeChatId); 
+                    String dynamicKey = getDynamicRoomKey(activeChatId);
                     for (String m : messages) {
                         if (!m.isEmpty()) {
                             String[] parts = m.split("~");
                             if (parts.length >= 3) {
                                 String sender = parts[0];
                                 String decrypted = CryptoUtil.decrypt(parts[1], dynamicKey);
-                                
-                                if (decrypted == null || decrypted.equalsIgnoreCase("null")) decrypted = "[Encrypted]";
-                                
+
+                                if (decrypted == null || decrypted.equalsIgnoreCase("null")) {
+                                    decrypted = "[Encrypted]";
+                                }
+
                                 boolean isMe = sender.equals(currentDisplayName) || sender.equals(currentUsername);
                                 appendMessageBubble(sender, decrypted, parts[2], isMe);
                             }
@@ -350,48 +391,66 @@ public class MessagesPanel extends JPanel implements NetworkListener {
                     }
                     scrollToBottom();
                 }
-                chatHistoryContainer.revalidate(); chatHistoryContainer.repaint();
+                chatHistoryContainer.revalidate();
+                chatHistoryContainer.repaint();
+            });
+        } else if (incomingMessage.startsWith("UPDATE_STATUS|")) {
+            String[] parts = incomingMessage.split("\\|");
+            String targetUser = parts[1];
+            String newStatus = parts[2]; // "ONLINE" or "OFFLINE"
+
+            SwingUtilities.invokeLater(() -> {
+                for (int i = 0; i < chatListModel.size(); i++) {
+                    ChatListItem item = chatListModel.getElementAt(i);
+                    // If the item ID matches the username (for DMs)
+                    if (item.id.equals(targetUser)) {
+                        item.lastTime = newStatus.equals("ONLINE") ? "Active Now" : "Offline";
+                        chatList.repaint(); // Force the UI to refresh the text
+                        break;
+                    }
+                }
             });
         }
+
     }
 
     private void appendMessageBubble(String sender, String text, String time, boolean isMe) {
-    // 1. Scrub "null" or empty messages immediately
-    if (text == null || text.equalsIgnoreCase("null") || text.trim().isEmpty()) {
-        return; 
+        // 1. Scrub "null" or empty messages immediately
+        if (text == null || text.equalsIgnoreCase("null") || text.trim().isEmpty()) {
+            return;
+        }
+
+        JPanel row = new JPanel(new BorderLayout());
+        row.setOpaque(false);
+        row.setBorder(new EmptyBorder(5, 15, 5, 15));
+
+        GradientBubble bubble = new GradientBubble(text, isMe);
+
+        // 2. Ensure Time is always 12-hour format
+        JLabel lblTime = new JLabel(time);
+        lblTime.putClientProperty("FlatLaf.style", "font: 10; foreground: #7A7D82");
+
+        JPanel bubbleStack = new JPanel(new MigLayout("wrap 1, insets 0, gap 2", (isMe ? "[right]" : "[left]")));
+        bubbleStack.setOpaque(false);
+        bubbleStack.add(bubble);
+        bubbleStack.add(lblTime);
+
+        if (isMe) {
+            row.add(bubbleStack, BorderLayout.EAST);
+        } else {
+            JPanel leftWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+            leftWrapper.setOpaque(false);
+            JLabel avatar = new JLabel("👤");
+            avatar.putClientProperty("FlatLaf.style", "font: 180% $defaultFont; foreground: #B0B3B8");
+            leftWrapper.add(avatar);
+            leftWrapper.add(bubbleStack);
+            row.add(leftWrapper, BorderLayout.WEST);
+        }
+
+        chatHistoryContainer.add(row);
+        chatHistoryContainer.revalidate();
+        chatHistoryContainer.repaint();
     }
-
-    JPanel row = new JPanel(new BorderLayout());
-    row.setOpaque(false);
-    row.setBorder(new EmptyBorder(5, 15, 5, 15));
-
-    GradientBubble bubble = new GradientBubble(text, isMe);
-    
-    // 2. Ensure Time is always 12-hour format
-    JLabel lblTime = new JLabel(time);
-    lblTime.putClientProperty("FlatLaf.style", "font: 10; foreground: #7A7D82");
-    
-    JPanel bubbleStack = new JPanel(new MigLayout("wrap 1, insets 0, gap 2", (isMe ? "[right]" : "[left]")));
-    bubbleStack.setOpaque(false);
-    bubbleStack.add(bubble);
-    bubbleStack.add(lblTime);
-
-    if (isMe) {
-        row.add(bubbleStack, BorderLayout.EAST);
-    } else {
-        JPanel leftWrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        leftWrapper.setOpaque(false);
-        JLabel avatar = new JLabel("👤");
-        avatar.putClientProperty("FlatLaf.style", "font: 180% $defaultFont; foreground: #B0B3B8");
-        leftWrapper.add(avatar);
-        leftWrapper.add(bubbleStack);
-        row.add(leftWrapper, BorderLayout.WEST);
-    }
-
-    chatHistoryContainer.add(row);
-    chatHistoryContainer.revalidate();
-    chatHistoryContainer.repaint();
-}
 
     private void toggleInfoPanel() {
         isInfoPanelVisible = !isInfoPanelVisible;
@@ -410,46 +469,78 @@ public class MessagesPanel extends JPanel implements NetworkListener {
     private JPanel buildDMInfoPanel() {
         JPanel p = new JPanel(new MigLayout("wrap 1, fillx, insets 20", "[center]", "[]10[]5[]20[]20[fill]"));
         p.setBackground(SIDEBAR_BG);
-        JLabel avatar = new JLabel("👤"); avatar.putClientProperty("FlatLaf.style", "font: 500% $defaultFont"); p.add(avatar);
-        JLabel name = new JLabel("Direct Message"); name.putClientProperty("FlatLaf.style", "font: bold 18; foreground: #E4E6EB"); p.add(name);
-        JLabel status = new JLabel("Active now"); status.putClientProperty("FlatLaf.style", "font: 12; foreground: #B0B3B8"); p.add(status);
-        JPanel actionRow = new JPanel(new MigLayout("insets 0, gap 20", "[][][]", "")); actionRow.setBackground(SIDEBAR_BG);
-        actionRow.add(createActionCircle("👤", "Profile")); actionRow.add(createActionCircle("🔕", "Mute")); actionRow.add(createActionCircle("🔍", "Search"));
+        JLabel avatar = new JLabel("👤");
+        avatar.putClientProperty("FlatLaf.style", "font: 500% $defaultFont");
+        p.add(avatar);
+        JLabel name = new JLabel("Direct Message");
+        name.putClientProperty("FlatLaf.style", "font: bold 18; foreground: #E4E6EB");
+        p.add(name);
+        JLabel status = new JLabel("Active now");
+        status.putClientProperty("FlatLaf.style", "font: 12; foreground: #B0B3B8");
+        p.add(status);
+        JPanel actionRow = new JPanel(new MigLayout("insets 0, gap 20", "[][][]", ""));
+        actionRow.setBackground(SIDEBAR_BG);
+        actionRow.add(createActionCircle("👤", "Profile"));
+        actionRow.add(createActionCircle("🔕", "Mute"));
+        actionRow.add(createActionCircle("🔍", "Search"));
         p.add(actionRow);
-        JPanel sections = new JPanel(new MigLayout("wrap 1, fillx, insets 0", "[fill]", "[]0[]")); sections.setBackground(SIDEBAR_BG);
-        sections.add(createCategoryHeader("Privacy & support")); sections.add(createMenuButton("🔒 End-to-end encrypted"));
-        JScrollPane sp = new JScrollPane(sections); sp.setBorder(null); p.add(sp, "grow");
+        JPanel sections = new JPanel(new MigLayout("wrap 1, fillx, insets 0", "[fill]", "[]0[]"));
+        sections.setBackground(SIDEBAR_BG);
+        sections.add(createCategoryHeader("Privacy & support"));
+        sections.add(createMenuButton("🔒 End-to-end encrypted"));
+        JScrollPane sp = new JScrollPane(sections);
+        sp.setBorder(null);
+        p.add(sp, "grow");
         return p;
     }
 
     private JPanel buildGroupInfoPanel() {
         JPanel p = new JPanel(new MigLayout("wrap 1, fillx, insets 20", "[center]", "[]10[]5[]20[]20[fill]"));
         p.setBackground(SIDEBAR_BG);
-        JLabel avatar = new JLabel("👥"); avatar.putClientProperty("FlatLaf.style", "font: 500% $defaultFont"); p.add(avatar);
-        JLabel name = new JLabel("Group Settings"); name.putClientProperty("FlatLaf.style", "font: bold 18; foreground: #E4E6EB"); p.add(name);
-        JScrollPane sp = new JScrollPane(new JPanel()); sp.setBorder(null); p.add(sp, "grow");
+        JLabel avatar = new JLabel("👥");
+        avatar.putClientProperty("FlatLaf.style", "font: 500% $defaultFont");
+        p.add(avatar);
+        JLabel name = new JLabel("Group Settings");
+        name.putClientProperty("FlatLaf.style", "font: bold 18; foreground: #E4E6EB");
+        p.add(name);
+        JScrollPane sp = new JScrollPane(new JPanel());
+        sp.setBorder(null);
+        p.add(sp, "grow");
         return p;
     }
 
     private JButton createIconButton(String iconText, String tooltip, boolean isBlueAccent) {
-        JButton btn = new JButton(iconText); btn.setToolTipText(tooltip);
+        JButton btn = new JButton(iconText);
+        btn.setToolTipText(tooltip);
         btn.putClientProperty("FlatLaf.style", "buttonType: borderless; hoverBackground: #3A3B3C; arc: 999; margin: 5, 8, 5, 8; font: 140% $defaultFont; " + (isBlueAccent ? "foreground: #0084FF;" : "foreground: #B0B3B8;"));
         return btn;
     }
 
     private JButton createMenuButton(String text) {
-        JButton btn = new JButton(text); btn.setHorizontalAlignment(SwingConstants.LEFT); btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-        btn.putClientProperty("FlatLaf.style", "buttonType: borderless; margin: 0, 0, 0, 0; font: 14; foreground: #E4E6EB; hoverBackground: #3A3B3C; arc: 10"); btn.setBorder(new EmptyBorder(8, 10, 8, 10));
+        JButton btn = new JButton(text);
+        btn.setHorizontalAlignment(SwingConstants.LEFT);
+        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        btn.putClientProperty("FlatLaf.style", "buttonType: borderless; margin: 0, 0, 0, 0; font: 14; foreground: #E4E6EB; hoverBackground: #3A3B3C; arc: 10");
+        btn.setBorder(new EmptyBorder(8, 10, 8, 10));
         return btn;
     }
 
     private JPanel createActionCircle(String icon, String labelText) {
-        JPanel p = new JPanel(new MigLayout("wrap 1, insets 0, align center", "[center]", "[]5[]")); p.setOpaque(false);
-        JButton btn = new JButton(icon); btn.putClientProperty("FlatLaf.style", "arc: 999; background: #3A3B3C; foreground: #E4E6EB; margin: 12,14,12,14; font: 150% $defaultFont; borderWidth: 0"); p.add(btn);
-        JLabel lbl = new JLabel(labelText); lbl.putClientProperty("FlatLaf.style", "font: 12; foreground: #E4E6EB"); p.add(lbl); return p;
+        JPanel p = new JPanel(new MigLayout("wrap 1, insets 0, align center", "[center]", "[]5[]"));
+        p.setOpaque(false);
+        JButton btn = new JButton(icon);
+        btn.putClientProperty("FlatLaf.style", "arc: 999; background: #3A3B3C; foreground: #E4E6EB; margin: 12,14,12,14; font: 150% $defaultFont; borderWidth: 0");
+        p.add(btn);
+        JLabel lbl = new JLabel(labelText);
+        lbl.putClientProperty("FlatLaf.style", "font: 12; foreground: #E4E6EB");
+        p.add(lbl);
+        return p;
     }
 
     private JLabel createCategoryHeader(String text) {
-        JLabel lbl = new JLabel(text); lbl.putClientProperty("FlatLaf.style", "font: bold 13; foreground: #B0B3B8"); lbl.setBorder(new EmptyBorder(15, 10, 5, 10)); return lbl;
+        JLabel lbl = new JLabel(text);
+        lbl.putClientProperty("FlatLaf.style", "font: bold 13; foreground: #B0B3B8");
+        lbl.setBorder(new EmptyBorder(15, 10, 5, 10));
+        return lbl;
     }
 }
