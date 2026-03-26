@@ -11,23 +11,28 @@ public class ChatUI extends JFrame {
     private JPanel mainCardPanel;
     private CardLayout cardLayout;
 
-    private final Color MAIN_BG = Color.decode("#18191A"); 
-    private final Color SIDEBAR_BG = Color.decode("#242526"); 
+    private final Color MAIN_BG = Color.decode("#18191A");
+    private final Color SIDEBAR_BG = Color.decode("#242526");
 
     public ChatUI(String username, String displayName) {
         this.currentUsername = username;
         this.currentDisplayName = displayName;
-        
-        applyOrbitStyles(); 
+
+        applyOrbitStyles();
         setupFrame();
         initComponents();
-        
+
+        // 🚀 THE FIX: Start the central network engine!
+        // Make sure this IP matches your XAMPP PC's IPv4 address
+        com.orbit.network.NetworkManager.getInstance().setServerAddress("192.168.100.32");
+        com.orbit.network.NetworkManager.getInstance().connect(currentUsername);
+
         System.out.println("Orbit ChatUI Initialized: " + displayName);
     }
 
     private void setupFrame() {
         setTitle("Orbit Secure Messenger - " + currentDisplayName);
-        setSize(1280, 800); 
+        setSize(1280, 800);
         setMinimumSize(new Dimension(900, 600));
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -37,18 +42,18 @@ public class ChatUI extends JFrame {
 
     private void initComponents() {
         setLayout(new BorderLayout());
-        
+
         // TOP NAVIGATION BAR
         JPanel topNavBar = new JPanel(new FlowLayout(FlowLayout.CENTER, 40, 8));
         topNavBar.setBackground(SIDEBAR_BG);
-        topNavBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Color.decode("#393A3B"))); 
+        topNavBar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Color.decode("#393A3B")));
 
         topNavBar.add(createNavButton("💬", "messages_card", "Messages"));
         topNavBar.add(createNavButton("🏠", "home_card", "Home"));
         topNavBar.add(createNavButton("👥", "friends_card", "Friends"));
         topNavBar.add(createNavButton("👤", "profile_card", "Profile"));
         topNavBar.add(createNavButton("⚙️", "settings_card", "Settings"));
-        
+
         add(topNavBar, BorderLayout.NORTH);
 
         // MAIN CARD LAYOUT
@@ -58,11 +63,12 @@ public class ChatUI extends JFrame {
 
         // --- PLUG IN THE MODULAR PANELS HERE ---
         mainCardPanel.add(new MessagesPanel(currentUsername, currentDisplayName), "messages_card");
-        
+        mainCardPanel.add(new FriendlistPanel(currentUsername, currentDisplayName), "friends_card");
+        mainCardPanel.add(new ProfilePanel(currentUsername, currentDisplayName), "profile_card");
         // Placeholders for team members to build later:
         mainCardPanel.add(buildPlaceholderPanel("Home Feed"), "home_card");
-        mainCardPanel.add(buildPlaceholderPanel("Friends List"), "friends_card");
-        mainCardPanel.add(buildPlaceholderPanel("User Profile"), "profile_card");
+
+        
         mainCardPanel.add(buildPlaceholderPanel("Settings"), "settings_card");
 
         add(mainCardPanel, BorderLayout.CENTER);
@@ -77,14 +83,14 @@ public class ChatUI extends JFrame {
     }
 
     private void applyOrbitStyles() {
-        UIManager.put("SplitPane.dividerSize", 0); 
+        UIManager.put("SplitPane.dividerSize", 0);
         UIManager.put("ScrollPane.border", BorderFactory.createEmptyBorder());
         UIManager.put("ScrollBar.showButtons", false);
         UIManager.put("ScrollBar.width", 8);
-        UIManager.put("ScrollBar.thumbArc", 999); 
+        UIManager.put("ScrollBar.thumbArc", 999);
         UIManager.put("ScrollBar.thumb", Color.decode("#555555"));
     }
-    
+
     private JPanel buildPlaceholderPanel(String text) {
         JPanel p = new JPanel(new GridBagLayout());
         p.setBackground(MAIN_BG);
