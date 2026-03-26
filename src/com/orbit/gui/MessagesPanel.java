@@ -52,6 +52,9 @@ public class MessagesPanel extends JPanel implements NetworkListener {
     private boolean isInfoPanelVisible = true;
     private JLabel lblChatName;
 
+    private JLabel lblInfoName;
+    private JLabel lblInfoStatus;
+
     private java.util.HashMap<String, String> chatTypeMap = new java.util.HashMap<>();
     private java.util.HashMap<String, String> chatIdMap = new java.util.HashMap<>();
 
@@ -132,15 +135,28 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         chatList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting() && chatList.getSelectedValue() != null) {
                 ChatListItem selectedItem = chatList.getSelectedValue();
+
                 activeChatId = selectedItem.id;
                 activeChatType = selectedItem.type;
+
+                // Update Top Center Header
                 if (lblChatName != null) {
                     lblChatName.setText(selectedItem.displayName + " 🔒");
+                }
+
+                // 🚀 THE FIX: Update the Right Info Panel labels!
+                if (lblInfoName != null) {
+                    lblInfoName.setText(selectedItem.displayName);
+                }
+                if (lblInfoStatus != null) {
+                    lblInfoStatus.setText(selectedItem.lastTime); // e.g., "Active Now"
                 }
                 chatHistoryContainer.removeAll();
                 chatHistoryContainer.revalidate();
                 chatHistoryContainer.repaint();
+
                 NetworkManager.getInstance().send("LOAD_CHAT_HISTORY|" + activeChatId + "|" + currentUsername);
+
                 if ("GROUP".equals(activeChatType)) {
                     infoCardLayout.show(rightInfoPanel, "GROUP_INFO");
                 } else {
@@ -322,7 +338,7 @@ public class MessagesPanel extends JPanel implements NetworkListener {
             String data = incomingMessage.substring(9);
             String[] chats = data.split(",");
             SwingUtilities.invokeLater(() -> {
-                chatListModel.clear(); 
+                chatListModel.clear();
                 masterChatList.clear();
                 for (String c : chats) {
                     if (!c.isEmpty()) {
@@ -332,7 +348,7 @@ public class MessagesPanel extends JPanel implements NetworkListener {
                             String name = parts[1];
                             String type = parts[2];
                             String status = parts[3]; // "Active Now" or "Offline"
-                            
+
                             ChatListItem item = new ChatListItem(id, name, type, status);
                             masterChatList.add(item);
                             chatListModel.addElement(item);
@@ -395,22 +411,38 @@ public class MessagesPanel extends JPanel implements NetworkListener {
                 chatHistoryContainer.repaint();
             });
         } else if (incomingMessage.startsWith("UPDATE_STATUS|")) {
-            String[] parts = incomingMessage.split("\\|");
-            String targetUser = parts[1];
-            String newStatus = parts[2]; // "ONLINE" or "OFFLINE"
+        String[] parts = incomingMessage.split("\\|");
+        if (parts.length < 3) return;
 
-            SwingUtilities.invokeLater(() -> {
-                for (int i = 0; i < chatListModel.size(); i++) {
-                    ChatListItem item = chatListModel.getElementAt(i);
-                    // If the item ID matches the username (for DMs)
-                    if (item.id.equals(targetUser)) {
-                        item.lastTime = newStatus.equals("ONLINE") ? "Active Now" : "Offline";
-                        chatList.repaint(); // Force the UI to refresh the text
-                        break;
+        String targetUser = parts[1];
+        String newStatus = parts[2]; // "ONLINE" or "OFFLINE"
+
+        SwingUtilities.invokeLater(() -> {
+            // Loop through the sidebar list to find the friend who changed status
+            for (int i = 0; i < chatListModel.size(); i++) {
+                ChatListItem item = chatListModel.getElementAt(i);
+                
+                // We check if the ID matches the friend's username
+                if (item.id.equals(targetUser)) {
+                    // 1. Update the underlying data for the left sidebar subtext
+                    item.lastTime = newStatus.equals("ONLINE") ? "Active Now" : "Offline";
+
+                    // 2. If we are currently looking at THIS user's profile on the right...
+                    if (activeChatId != null && activeChatId.equals(targetUser)) {
+                        // ...Update the Right Info Panel status label immediately
+                        lblInfoStatus.setText(item.lastTime);
+                        
+                        // Optional: Update the "Active now" text under the center header name
+                        // nameStack.getComponent(1).setText(item.lastTime);
                     }
+
+                    // 3. Refresh the UI so the changes appear on screen
+                    chatList.repaint();
+                    break; // Exit the loop since we found our target
                 }
-            });
-        }
+            }
+        });
+    }
 
     }
 
@@ -469,28 +501,37 @@ public class MessagesPanel extends JPanel implements NetworkListener {
     private JPanel buildDMInfoPanel() {
         JPanel p = new JPanel(new MigLayout("wrap 1, fillx, insets 20", "[center]", "[]10[]5[]20[]20[fill]"));
         p.setBackground(SIDEBAR_BG);
+
         JLabel avatar = new JLabel("👤");
-        avatar.putClientProperty("FlatLaf.style", "font: 500% $defaultFont");
+        avatar.putClientProperty("FlatLaf.style", "font: 500% $defaultFont; foreground: #B0B3B8");
         p.add(avatar);
-        JLabel name = new JLabel("Direct Message");
-        name.putClientProperty("FlatLaf.style", "font: bold 18; foreground: #E4E6EB");
-        p.add(name);
-        JLabel status = new JLabel("Active now");
-        status.putClientProperty("FlatLaf.style", "font: 12; foreground: #B0B3B8");
-        p.add(status);
+
+        // 🚀 THE FIX: Use the class-level variable instead of a local JLabel
+        lblInfoName = new JLabel("Select a Chat");
+        lblInfoName.putClientProperty("FlatLaf.style", "font: bold 18; foreground: #E4E6EB");
+        p.add(lblInfoName);
+
+        // 🚀 THE FIX: Use the class-level variable for status
+        lblInfoStatus = new JLabel("Offline");
+        lblInfoStatus.putClientProperty("FlatLaf.style", "font: 12; foreground: #B0B3B8");
+        p.add(lblInfoStatus);
+
         JPanel actionRow = new JPanel(new MigLayout("insets 0, gap 20", "[][][]", ""));
         actionRow.setBackground(SIDEBAR_BG);
         actionRow.add(createActionCircle("👤", "Profile"));
         actionRow.add(createActionCircle("🔕", "Mute"));
         actionRow.add(createActionCircle("🔍", "Search"));
         p.add(actionRow);
+
         JPanel sections = new JPanel(new MigLayout("wrap 1, fillx, insets 0", "[fill]", "[]0[]"));
         sections.setBackground(SIDEBAR_BG);
         sections.add(createCategoryHeader("Privacy & support"));
         sections.add(createMenuButton("🔒 End-to-end encrypted"));
+
         JScrollPane sp = new JScrollPane(sections);
         sp.setBorder(null);
         p.add(sp, "grow");
+
         return p;
     }
 
