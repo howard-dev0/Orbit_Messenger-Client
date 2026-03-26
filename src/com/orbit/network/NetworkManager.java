@@ -30,7 +30,11 @@ public class NetworkManager {
     public void setServerAddress(String ip) {
         this.serverIp = ip;
     }
-
+    
+    public void removeListener(NetworkListener listener) {
+        listeners.remove(listener);
+    }
+    
     public void connect(String myUsername) {
         if (isConnected) {
             System.out.println("⚠️ NetworkManager: Already connected. Ignoring connect() call.");
