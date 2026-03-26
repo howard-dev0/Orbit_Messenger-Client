@@ -77,6 +77,7 @@ public class registerPanel extends javax.swing.JPanel {
 
         usernameField.setBackground(new java.awt.Color(53, 53, 60));
         usernameField.setFont(new java.awt.Font("Segoe UI", 0, 22)); // NOI18N
+        usernameField.setForeground(new java.awt.Color(255, 255, 255));
 
         usernameResponseLabel.setForeground(new java.awt.Color(255, 255, 255));
         usernameResponseLabel.setText("Please only use numbers, letters, underscores _, or periods.");
@@ -87,6 +88,7 @@ public class registerPanel extends javax.swing.JPanel {
 
         passwordField.setBackground(new java.awt.Color(53, 53, 60));
         passwordField.setFont(new java.awt.Font("Segoe UI", 0, 22)); // NOI18N
+        passwordField.setForeground(new java.awt.Color(255, 255, 255));
         passwordField.addActionListener(this::passwordFieldActionPerformed);
 
         jLabel8.setFont(new java.awt.Font("Segoe UI", 1, 14)); // NOI18N
