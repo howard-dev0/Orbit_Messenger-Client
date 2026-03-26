@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Mar 26, 2026 at 06:55 PM
+-- Generation Time: Mar 26, 2026 at 07:32 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -112,7 +112,8 @@ CREATE TABLE `messages` (
 INSERT INTO `messages` (`id`, `conversation_id`, `sender_id`, `encrypted_content`, `attachment_url`, `is_pinned`, `created_at`) VALUES
 (18, 1, 5, 'iPMP3OGfFFZV9arNERG5tw==', NULL, 0, '2026-03-26 15:40:44'),
 (19, 1, 6, 'TGtW3jm4Sq3IFH/kh0iIMw==', NULL, 0, '2026-03-26 15:41:03'),
-(20, 1, 5, 'ZjvCaoacNvRYP5xyQKymGQ==', NULL, 0, '2026-03-26 16:34:55');
+(20, 1, 5, 'ZjvCaoacNvRYP5xyQKymGQ==', NULL, 0, '2026-03-26 16:34:55'),
+(21, 1, 6, 'kW4VvRTqNvAaQTbVGvbNdw==', NULL, 0, '2026-03-26 18:25:16');
 
 -- --------------------------------------------------------
 
@@ -176,8 +177,9 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `full_name`, `email`, `username`, `password`, `created_at`) VALUES
-(5, 'howard', 'h@gmai.com', 'howard', '1934d8bfaed57f11f8af9175540fce4b2ff0492e6b258e73ae2f16bc8c339d4c', '2026-03-26 08:55:20'),
-(6, 'kh', 'k@gmail.com', 'kh', '1fcff1fe7e601e10bb94291b44e0c531fd855f5c9335805f1f7865b576c21828', '2026-03-26 12:17:56');
+(5, 'Howardo', 'h@gmai.com', 'howard', '1934d8bfaed57f11f8af9175540fce4b2ff0492e6b258e73ae2f16bc8c339d4c', '2026-03-26 08:55:20'),
+(6, 'kh', 'k@gmail.com', 'kh', '1fcff1fe7e601e10bb94291b44e0c531fd855f5c9335805f1f7865b576c21828', '2026-03-26 12:17:56'),
+(7, 'hello', 'hi@gmail.com', 'hel', 'd6a81f224bbf2f7c22baddbd5d40730eb20cfb0b3d74e10cab61788214caceb1', '2026-03-26 17:59:36');
 
 --
 -- Indexes for dumped tables
@@ -262,7 +264,7 @@ ALTER TABLE `friendships`
 -- AUTO_INCREMENT for table `messages`
 --
 ALTER TABLE `messages`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT for table `posts`
@@ -280,7 +282,7 @@ ALTER TABLE `stories`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- Constraints for dumped tables

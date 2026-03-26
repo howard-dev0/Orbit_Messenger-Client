@@ -84,11 +84,19 @@ public class MessagesPanel extends JPanel implements NetworkListener {
         leftPanel.setPreferredSize(new Dimension(320, 0));
         leftPanel.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, Color.decode("#393A3B")));
 
-        JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 15));
+// --- LEFT PANEL HEADER ---
+        JPanel filterPanel = new JPanel(new BorderLayout());
         filterPanel.setBackground(SIDEBAR_BG);
+        filterPanel.setBorder(new EmptyBorder(15, 15, 5, 15));
+
         JLabel lblChats = new JLabel("Chats");
         lblChats.putClientProperty("FlatLaf.style", "font: bold 24; foreground: #E4E6EB");
-        filterPanel.add(lblChats);
+        filterPanel.add(lblChats, BorderLayout.WEST);
+
+        // 🚀 THE FIX: Add the "Create Group" button next to "Chats"
+        JButton btnNewGroup = createIconButton("📝", "Create New Group", false);
+        btnNewGroup.addActionListener(e -> openCreateGroupDialog());
+        filterPanel.add(btnNewGroup, BorderLayout.EAST);
 
         JPanel leftHeaderWrapper = new JPanel(new BorderLayout());
         leftHeaderWrapper.setBackground(SIDEBAR_BG);
@@ -335,6 +343,7 @@ public class MessagesPanel extends JPanel implements NetworkListener {
     public void onMessageReceived(String incomingMessage) {
         // 1. POPULATE CHATS
         if (incomingMessage.startsWith("MY_CHATS|")) {
+            System.out.println("📦 RAW CHAT DATA FROM SERVER: " + incomingMessage);
             String data = incomingMessage.substring(9);
             String[] chats = data.split(",");
             SwingUtilities.invokeLater(() -> {
@@ -448,7 +457,7 @@ public class MessagesPanel extends JPanel implements NetworkListener {
 
     }
 
-    private void appendMessageBubble(String sender, String text, String time, boolean isMe) {
+private void appendMessageBubble(String sender, String text, String time, boolean isMe) {
         // 1. Scrub "null" or empty messages immediately
         if (text == null || text.equalsIgnoreCase("null") || text.trim().isEmpty()) {
             return;
@@ -460,12 +469,22 @@ public class MessagesPanel extends JPanel implements NetworkListener {
 
         GradientBubble bubble = new GradientBubble(text, isMe);
 
-        // 2. Ensure Time is always 12-hour format
+        // Time Label
         JLabel lblTime = new JLabel(time);
         lblTime.putClientProperty("FlatLaf.style", "font: 10; foreground: #7A7D82");
 
+        // 🚀 NEW: Sender Name Label
+        JLabel lblName = new JLabel(sender);
+        lblName.putClientProperty("FlatLaf.style", "font: bold 11; foreground: #B0B3B8");
+
         JPanel bubbleStack = new JPanel(new MigLayout("wrap 1, insets 0, gap 2", (isMe ? "[right]" : "[left]")));
         bubbleStack.setOpaque(false);
+        
+        // 🚀 NEW: Add the name on top! (Only for incoming messages, just like real apps)
+        if (!isMe) {
+            bubbleStack.add(lblName);
+        }
+        
         bubbleStack.add(bubble);
         bubbleStack.add(lblTime);
 
@@ -603,6 +622,26 @@ private JPanel createActionCircle(String icon, String labelText, java.awt.event.
         p.add(lbl);
         
         return p;
+    }
+
+    private void openCreateGroupDialog() {
+        // Filter the master list to ONLY show DMs (Direct friends)
+        List<String> friendsOnly = new ArrayList<>();
+        for (ChatListItem item : masterChatList) {
+            if ("DM".equals(item.type)) {
+                friendsOnly.add(item.id); // item.id is the username
+            }
+        }
+
+        if (friendsOnly.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "You need to add some friends before creating a group!");
+            return;
+        }
+
+        // Open the secure group creation dialog we built earlier
+        Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
+        CreateGroupDialog dialog = new CreateGroupDialog(parentFrame, currentUsername, friendsOnly);
+        dialog.setVisible(true);
     }
 
     private JLabel createCategoryHeader(String text) {
