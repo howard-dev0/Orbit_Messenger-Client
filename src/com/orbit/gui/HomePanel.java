@@ -22,11 +22,9 @@ public class HomePanel extends JPanel implements NetworkListener {
     private JPanel feedContainer;
     private JTextArea txtPost;
     
-    // 🚀 VARIABLES FOR IMAGE ATTACHMENTS
     private String attachedImageBase64 = null;
     private JPanel attachmentPreviewPanel;
 
-    // Theme Colors
     private final Color MAIN_BG = Color.decode("#18191A");
     private final Color CARD_BG = Color.decode("#242526");
 
@@ -39,28 +37,21 @@ public class HomePanel extends JPanel implements NetworkListener {
         
         initComponents();
 
-        // Register to receive network updates
         NetworkManager.getInstance().addListener(this);
-        
-        // Fetch the feed from the server immediately upon opening the panel
         NetworkManager.getInstance().send("GET_HOME_FEED|" + currentUsername);
     }
 
     private void initComponents() {
-        // Main wrapper with 20% margins on the sides to center the feed beautifully
         JPanel wrapper = new JPanel(new MigLayout("wrap 1, fillx, insets 20 20% 20 20%", "[fill, grow]"));
         wrapper.setBackground(MAIN_BG);
 
-        // 1. The "Create Post" Box
         wrapper.add(createComposerPanel(), "growx, wrap");
 
-        // 2. The Feed Container
         feedContainer = new JPanel(new MigLayout("wrap 1, fillx, insets 0", "[fill, grow]"));
         feedContainer.setBackground(MAIN_BG);
 
         wrapper.add(feedContainer, "growx");
 
-        // Scroll Pane
         JScrollPane scroll = new JScrollPane(wrapper);
         scroll.setBorder(null);
         scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
@@ -68,7 +59,7 @@ public class HomePanel extends JPanel implements NetworkListener {
         add(scroll, BorderLayout.CENTER);
     }
 
-private JPanel createComposerPanel() {
+    private JPanel createComposerPanel() {
         JPanel p = new JPanel(new MigLayout("fillx, insets 15", "[][grow]", "[][][]"));
         p.setBackground(CARD_BG);
         p.putClientProperty("FlatLaf.style", "arc: 15");
@@ -111,19 +102,17 @@ private JPanel createComposerPanel() {
         
         btnPost.addActionListener(e -> {
             String content = txtPost.getText().trim();
-            if (!content.isEmpty() || attachedImageBase64 != null) {
-                
-                String payload = content;
-                
-                // 🚀 FIX 1: Use <br> instead of \n to attach the image
-                if (attachedImageBase64 != null) {
-                    payload += (payload.isEmpty() ? "" : "<br>") + "[IMG]" + attachedImageBase64;
-                }
-                
-                // 🚀 FIX 2: Sanitize all user-typed "Enters/Newlines" into <br> tags so the socket doesn't break
-                payload = payload.replace("\n", "<br>");
-                
-                NetworkManager.getInstance().send("CREATE_POST|" + currentUsername + "|" + payload);
+            content = content.replace("\n", "<br>");
+            
+            if (content.isEmpty()) {
+                content = "null";
+            }
+            
+            String imgData = attachedImageBase64 != null ? attachedImageBase64 : "null";
+
+            // 🚀 NEW LOGIC: Sends text and image separately to match DB Schema!
+            if (!content.equals("null") || !imgData.equals("null")) {
+                NetworkManager.getInstance().send("CREATE_POST|" + currentUsername + "|" + content + "|" + imgData);
                 
                 txtPost.setText("");
                 attachedImageBase64 = null;
@@ -148,7 +137,6 @@ private JPanel createComposerPanel() {
                 File file = chooser.getSelectedFile();
                 BufferedImage img = ImageIO.read(file);
                 
-                // Shrink the image so it fits nicely in the feed without crashing the socket
                 int max = 400;
                 int w = img.getWidth();
                 int h = img.getHeight();
@@ -167,10 +155,8 @@ private JPanel createComposerPanel() {
                 ImageIO.write(scaled, "jpg", baos);
                 attachedImageBase64 = Base64.getEncoder().encodeToString(baos.toByteArray());
 
-                // Show a preview of the image right inside the composer box
                 attachmentPreviewPanel.removeAll();
                 
-                // Calculate thumbnail size for preview
                 int thumbH = 80;
                 int thumbW = (80 * w) / h;
                 Image thumb = scaled.getScaledInstance(thumbW, thumbH, Image.SCALE_SMOOTH);
@@ -211,7 +197,6 @@ private JPanel createComposerPanel() {
             item.setCursor(new Cursor(Cursor.HAND_CURSOR));
             item.addActionListener(e -> {
                 String current = txtPost.getText().trim();
-                // Append the feeling to the post
                 txtPost.setText((current.isEmpty() ? "" : current + "\n\n") + "— " + f);
                 txtPost.requestFocus();
             });
@@ -227,7 +212,6 @@ private JPanel createComposerPanel() {
         return btn;
     }
 
-    // 🚀 THE DECODER FIX: This properly splits and renders the Image!
     private JPanel createPostCard(String authorName, String content, String timeAgo, int likes, int comments) {
         JPanel card = new JPanel(new MigLayout("wrap 1, fillx, insets 15", "[fill]", "[]15[]15[]"));
         card.setBackground(CARD_BG);
@@ -269,7 +253,6 @@ private JPanel createComposerPanel() {
             imageBase64 = content.substring(imgIndex + 5);
         }
 
-        // 🚀 FIX 3: Restore the <br> tags back to actual Newlines (\n) for the UI!
         textContent = textContent.replace("<br>", "\n");
 
         if (!textContent.isEmpty()) {
@@ -289,7 +272,7 @@ private JPanel createComposerPanel() {
                 BufferedImage img = ImageIO.read(new ByteArrayInputStream(imgBytes));
                 JLabel imgLabel = new JLabel(new ImageIcon(img));
                 imgLabel.setBorder(BorderFactory.createLineBorder(Color.decode("#393A3B"), 1, true));
-                contentPanel.add(imgLabel, "align left, gaptop 10"); // Left aligned to match your styling
+                contentPanel.add(imgLabel, "align left, gaptop 10");
             } catch (Exception e) {
                 JLabel errorLbl = new JLabel("[Broken Image Attachment]");
                 errorLbl.setForeground(Color.RED);

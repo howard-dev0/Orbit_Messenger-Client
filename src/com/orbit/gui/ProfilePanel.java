@@ -260,7 +260,6 @@ public class ProfilePanel extends JPanel implements NetworkListener {
         dialog.setVisible(true);
     }
 
-    // 🚀 UPGRADED: Post rendering now decodes [IMG] tags on the profile page too!
     private JPanel createPostCard(String authorName, String timeAgo, String content, int likes, int comments) {
         JPanel card = new JPanel(new MigLayout("wrap 1, fillx, insets 15", "[fill]", "[]15[]15[]"));
         card.setBackground(CARD_BG);
@@ -298,6 +297,9 @@ public class ProfilePanel extends JPanel implements NetworkListener {
             imageBase64 = content.substring(imgIndex + 5);
         }
 
+        // 🚀 THE FIX: Restore the <br> tags back to actual Newlines (\n) for the UI!
+        textContent = textContent.replace("<br>", "\n");
+
         // Draw Text
         if (!textContent.isEmpty()) {
             JTextArea txtContent = new JTextArea(textContent);
@@ -327,6 +329,26 @@ public class ProfilePanel extends JPanel implements NetworkListener {
         
         card.add(contentPanel);
 
+        // 🚀 ADDED: The separator and Action Buttons (Like, Comment, Share) 
+        JSeparator sep = new JSeparator();
+        sep.setForeground(Color.decode("#393A3B"));
+        card.add(sep, "growx, gaptop 5, gapbottom 5");
+
+        JPanel actions = new JPanel(new GridLayout(1, 3, 10, 0));
+        actions.setOpaque(false);
+        
+        actions.add(createActionBtn("👍 Like " + (likes > 0 ? "(" + likes + ")" : "")));
+        actions.add(createActionBtn("💬 Comment " + (comments > 0 ? "(" + comments + ")" : "")));
+        actions.add(createActionBtn("🔁 Share"));
+        card.add(actions, "growx");
+
         return card;
+    }
+
+    private JButton createActionBtn(String text) {
+        JButton btn = new JButton(text);
+        btn.putClientProperty("FlatLaf.style", "buttonType: borderless; hoverBackground: #3A3B3C; font: bold 13; foreground: #B0B3B8; arc: 10; margin: 8, 0, 8, 0");
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        return btn;
     }
 }
